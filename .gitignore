@@ -1,10 +1,13 @@
 # Node.js
 node_modules/
+package-lock.json
 dist/
 release/
 build/
 out/
 .npm/
+*.js.map
+*.d.ts
 
 # Logs
 logs/
@@ -21,12 +24,25 @@ config/local.json
 *.db
 *.sqlite
 
+# Python (Reference Only - No Runtime)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+venv/
+.venv/
+
 # Environment Variables
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+config.json
 
 # IDE
 .vscode/
