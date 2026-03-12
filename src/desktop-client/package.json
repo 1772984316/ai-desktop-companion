@@ -4,7 +4,7 @@
   "description": "AI Desktop Companion — Electron + TypeScript 客户端",
   "main": "dist/main/main.js",
   "scripts": {
-    "copy-html":  "node -e \"const fs=require('fs');fs.mkdirSync('dist/renderer',{recursive:true});fs.copyFileSync('src/renderer/chat.html','dist/renderer/chat.html');console.log('Copied chat.html -> dist/renderer/');\"",
+    "copy-html":  "node -e \"const fs=require('fs');fs.mkdirSync('dist/renderer',{recursive:true});['chat.html','feishu-setup.html'].forEach(f=>{fs.copyFileSync('src/renderer/'+f,'dist/renderer/'+f);console.log('Copied',f,'-> dist/renderer/');});\"",
     "build":      "tsc --project tsconfig.json && npm run copy-html",
     "watch":      "tsc --project tsconfig.json --watch",
     "start":      "npm run build && electron .",

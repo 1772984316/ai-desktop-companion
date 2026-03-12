@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'">
+  <title>飞书机器人配置</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card: #1a1d27;
+      --border: #2e3347;
+      --accent: #2a85ff;
+      --accent-hover: #1a73e8;
+      --success: #34c759;
+      --warn: #f4b942;
+      --error: #ff453a;
+      --text: #e8eaf0;
+      --muted: #6b7280;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 28px;
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-app-region: no-drag;
+    }
+    h2 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+    .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 13px; }
+
+    /* 步骤卡片 */
+    .steps-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 24px;
+    }
+    .steps-card h3 { font-size: 13px; color: var(--warn); margin-bottom: 10px; }
+    .step { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; }
+    .step-num {
+      background: var(--accent);
+      color: #fff;
+      border-radius: 50%;
+      width: 20px; height: 20px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+    }
+    .step-text { font-size: 13px; color: var(--text); }
+    .step-text code {
+      background: #23263a; padding: 1px 5px; border-radius: 4px;
+      font-family: monospace; font-size: 12px;
+    }
+    .open-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 12px; padding: 6px 14px;
+      background: transparent; border: 1px solid var(--accent);
+      color: var(--accent); border-radius: 6px; cursor: pointer;
+      font-size: 13px; transition: background .15s;
+    }
+    .open-btn:hover { background: rgba(42,133,255,.1); }
+
+    /* 表单 */
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    label span { color: var(--error); }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 12px;
+      border-radius: 7px;
+      font-size: 14px;
+      outline: none;
+      transition: border .15s;
+    }
+    input:focus { border-color: var(--accent); }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    /* 折叠高级选项 */
+    .advanced-toggle {
+      color: var(--accent); cursor: pointer; font-size: 13px;
+      margin-bottom: 16px; display: inline-flex; align-items: center; gap: 4px;
+      user-select: none;
+    }
+    #advanced-section { display: none; }
+    #advanced-section.open { display: block; }
+
+    /* 按钮 */
+    .btn-row { display: flex; gap: 10px; margin-top: 8px; }
+    .btn {
+      padding: 10px 22px; border-radius: 8px; font-size: 14px;
+      font-weight: 500; cursor: pointer; border: none; transition: opacity .15s;
+    }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:not(:disabled):hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--card); border: 1px solid var(--border); color: var(--text); }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* 状态区 */
+    #status { margin-top: 18px; padding: 12px 16px; border-radius: 8px; display: none; font-size: 13px; }
+    #status.info    { background: rgba(42,133,255,.12); border: 1px solid rgba(42,133,255,.3); color: #7eb8ff; }
+    #status.success { background: rgba(52,199,89,.12); border: 1px solid rgba(52,199,89,.3); color: var(--success); }
+    #status.error   { background: rgba(255,69,58,.12); border: 1px solid rgba(255,69,58,.3); color: var(--error); }
+    #status.warn    { background: rgba(244,185,66,.12); border: 1px solid rgba(244,185,66,.3); color: var(--warn); }
+    #status pre { white-space: pre-wrap; font-family: inherit; line-height: 1.7; }
+
+    /* 成功徽章 */
+    .bot-badge {
+      display: none; align-items: center; gap: 10px;
+      background: rgba(52,199,89,.1); border: 1px solid rgba(52,199,89,.3);
+      padding: 10px 16px; border-radius: 8px; margin-top: 12px;
+    }
+    .bot-badge.show { display: flex; }
+    .bot-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+    .bot-avatar-placeholder {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--accent); display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .bot-name { font-weight: 600; color: var(--success); }
+    .bot-label { font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <h2>🤖 飞书机器人配置</h2>
+  <p class="subtitle">选择「一键创建」自动完成所有步骤，或手动输入凭证。</p>
+
+  <!-- ── 一键创建区域 ───────────────────────────────────────────── -->
+  <div class="steps-card" style="border-color: rgba(42,133,255,.4); margin-bottom: 20px;">
+    <h3 style="color: var(--accent); margin-bottom: 8px;">🚀 一键创建（推荐）</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">
+      点击后将打开飞书开放平台窗口，<strong>扫码登录</strong>后 nanobot 自动完成应用创建、开启机器人、订阅事件、申请权限全流程。
+    </p>
+
+    <!-- 自定义应用名称 -->
+    <div style="display:flex; gap:10px; margin-bottom:14px; align-items:center;">
+      <label style="font-size:13px; color:var(--muted); white-space:nowrap;">应用名称</label>
+      <input type="text" id="auto-app-name" value="nanobot 助手"
+        style="flex:1; background:var(--bg); border:1px solid var(--border);
+               color:var(--text); padding:7px 10px; border-radius:6px; font-size:13px; outline:none;">
+    </div>
+
+    <button class="btn btn-primary" id="btn-auto-create" style="width:100%; font-size:15px; padding:12px;">
+      🪄 一键创建飞书机器人
+    </button>
+
+    <!-- 自动化进度条 -->
+    <div id="auto-progress-wrap" style="display:none; margin-top:16px;">
+      <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:6px;">
+        <span id="auto-step-label">准备中…</span>
+        <span id="auto-step-num">0 / 8</span>
+      </div>
+      <div style="background:var(--bg); border-radius:4px; height:6px; overflow:hidden;">
+        <div id="auto-progress-bar"
+          style="height:100%; width:0; background:var(--accent); border-radius:4px; transition:width .3s;"></div>
+      </div>
+      <!-- 步骤气泡 -->
+      <div id="auto-steps-list" style="margin-top:12px; font-size:12px; color:var(--muted);"></div>
+      <button id="btn-auto-cancel" class="btn btn-secondary"
+        style="margin-top:10px; width:100%; font-size:13px; padding:7px;">
+        ✖ 取消
+      </button>
+    </div>
+
+    <!-- 完成后显示凭证 -->
+    <div id="auto-result" style="display:none; margin-top:14px; padding:12px;
+         background:rgba(52,199,89,.1); border:1px solid rgba(52,199,89,.3); border-radius:8px;">
+      <div style="font-weight:600; color:var(--success); margin-bottom:8px;">✅ 创建成功！凭证已自动写入配置。</div>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:4px;">App ID</div>
+      <div id="result-app-id" style="font-family:monospace; font-size:13px; color:var(--text);
+           background:var(--bg); padding:6px 10px; border-radius:5px; margin-bottom:8px; word-break:break-all;"></div>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:4px;">
+        ℹ️ 应用已提交发布审批，管理员审批后机器人即可使用。
+      </div>
+    </div>
+  </div>
+
+  <!-- 分隔线 -->
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+    <div style="flex:1; height:1px; background:var(--border);"></div>
+    <span style="font-size:12px; color:var(--muted);">或手动输入凭证</span>
+    <div style="flex:1; height:1px; background:var(--border);"></div>
+  </div>
+
+  <!-- 手动步骤提示 -->
+  <div class="steps-card">
+    <h3>⚠️ 前提：需在飞书开放平台手动完成以下配置</h3>
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-text">访问飞书开放平台，创建企业自建应用</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-text">应用 → 能力 → <strong>机器人</strong> → 开启机器人能力</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-text">事件订阅 → 添加事件：<code>im.message.receive_v1</code></div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-text">权限管理 → 申请：<code>im:message</code>、<code>im:message:send_as_bot</code></div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-text">版本管理 &amp; 发布 → 发布应用（需企业管理员审批）</div>
+    </div>
+    <div class="step">
+      <div class="step-num">6</div>
+      <div class="step-text">凭证与基础信息 → 复制 <strong>App ID</strong> 和 <strong>App Secret</strong> 填入下方</div>
+    </div>
+    <button class="open-btn" id="btn-open-platform">🔗 打开飞书开放平台</button>
+  </div>
+
+  <!-- 表单 -->
+  <div class="form-group">
+    <label>App ID <span>*</span></label>
+    <input type="text" id="appId" placeholder="cli_xxxxxxxxxxxxxxxx" autocomplete="off">
+    <div class="hint">格式：cli_ 开头的字符串</div>
+  </div>
+  <div class="form-group">
+    <label>App Secret <span>*</span></label>
+    <input type="password" id="appSecret" placeholder="••••••••••••••••••••••" autocomplete="new-password">
+  </div>
+
+  <!-- 高级选项 -->
+  <div class="advanced-toggle" id="toggle-advanced">
+    <span id="toggle-icon">▶</span> 高级选项（可选）
+  </div>
+  <div id="advanced-section">
+    <div class="form-group">
+      <label>Encrypt Key（加密密钥，可选）</label>
+      <input type="password" id="encryptKey" placeholder="留空表示不加密">
+    </div>
+    <div class="form-group">
+      <label>Verification Token（验证令牌，可选）</label>
+      <input type="text" id="verificationToken" placeholder="留空表示不验证">
+    </div>
+    <div class="form-group">
+      <label>允许的用户 open_id（多个用英文逗号分隔，留空允许所有人）</label>
+      <input type="text" id="allowFrom" placeholder="ou_xxx,ou_yyy  或  留空">
+      <div class="hint">留空 = 允许所有企业成员与机器人对话</div>
+    </div>
+  </div>
+
+  <!-- 操作按钮 -->
+  <div class="btn-row">
+    <button class="btn btn-secondary" id="btn-validate">✔ 验证凭证</button>
+    <button class="btn btn-primary" id="btn-apply" disabled>💾 保存并生效</button>
+  </div>
+
+  <!-- 机器人信息徽章 -->
+  <div class="bot-badge" id="bot-badge">
+    <div class="bot-avatar-placeholder" id="bot-avatar-placeholder">🤖</div>
+    <img class="bot-avatar" id="bot-avatar" src="" alt="" style="display:none">
+    <div>
+      <div class="bot-name" id="bot-name">机器人名称</div>
+      <div class="bot-label">凭证验证通过 ✅</div>
+    </div>
+  </div>
+
+  <!-- 状态提示 -->
+  <div id="status"></div>
+
+  <script>
+    const ipc = window.feishuAPI;   // 由 preload 注入
+
+    // ── 高级选项折叠 ─────────────────────────────────────────────────────
+    document.getElementById('toggle-advanced').addEventListener('click', () => {
+      const sec = document.getElementById('advanced-section');
+      const icon = document.getElementById('toggle-icon');
+      sec.classList.toggle('open');
+      icon.textContent = sec.classList.contains('open') ? '▼' : '▶';
+    });
+
+    // ── 打开飞书开放平台 ─────────────────────────────────────────────────
+    document.getElementById('btn-open-platform').addEventListener('click', () => {
+      ipc.openPlatform();
+    });
+
+    // ── 状态显示工具 ─────────────────────────────────────────────────────
+    function showStatus(type, html) {
+      const el = document.getElementById('status');
+      el.className = type;
+      el.style.display = 'block';
+      el.innerHTML = html;
+    }
+
+    function setLoading(btnId, loading) {
+      const btn = document.getElementById(btnId);
+      btn.disabled = loading;
+      if (btnId === 'btn-validate') {
+        btn.textContent = loading ? '⏳ 验证中...' : '✔ 验证凭证';
+      } else {
+        btn.textContent = loading ? '⏳ 保存中...' : '💾 保存并生效';
+      }
+    }
+
+    // ── 验证凭证 ─────────────────────────────────────────────────────────
+    document.getElementById('btn-validate').addEventListener('click', async () => {
+      const appId = document.getElementById('appId').value.trim();
+      const appSecret = document.getElementById('appSecret').value.trim();
+      if (!appId || !appSecret) {
+        showStatus('error', '❌ 请填写 App ID 和 App Secret。');
+        return;
+      }
+
+      setLoading('btn-validate', true);
+      document.getElementById('bot-badge').classList.remove('show');
+      document.getElementById('btn-apply').disabled = true;
+
+      const res = await ipc.validate({ appId, appSecret });
+      setLoading('btn-validate', false);
+
+      if (!res.ok) {
+        showStatus('error', `❌ 验证失败：${res.error || '未知错误'}`);
+        return;
+      }
+
+      // 显示机器人信息
+      const badge = document.getElementById('bot-badge');
+      badge.classList.add('show');
+      if (res.botName) document.getElementById('bot-name').textContent = res.botName;
+      if (res.botAvatar) {
+        const img = document.getElementById('bot-avatar');
+        img.src = res.botAvatar;
+        img.style.display = 'block';
+        document.getElementById('bot-avatar-placeholder').style.display = 'none';
+      }
+
+      // 警告信息
+      if (res.warnings && res.warnings.length > 0) {
+        const warnHtml = res.warnings.map(w => `<pre>${w}</pre>`).join('');
+        showStatus('warn', warnHtml);
+      } else {
+        showStatus('success', '✅ 凭证验证通过！点击「保存并生效」完成配置。');
+      }
+
+      document.getElementById('btn-apply').disabled = false;
+    });
+
+    // ── 保存配置 ─────────────────────────────────────────────────────────
+    document.getElementById('btn-apply').addEventListener('click', async () => {
+      const appId = document.getElementById('appId').value.trim();
+      const appSecret = document.getElementById('appSecret').value.trim();
+      const encryptKey = document.getElementById('encryptKey').value.trim();
+      const verificationToken = document.getElementById('verificationToken').value.trim();
+      const allowFromRaw = document.getElementById('allowFrom').value.trim();
+      const allowFrom = allowFromRaw
+        ? allowFromRaw.split(',').map(s => s.trim()).filter(Boolean)
+        : undefined;   // undefined → wizard 默认 ["*"]
+
+      setLoading('btn-apply', true);
+      const res = await ipc.apply({ appId, appSecret, encryptKey, verificationToken, allowFrom });
+      setLoading('btn-apply', false);
+
+      if (res.ok) {
+        showStatus('success',
+          `✅ 配置已保存！<br>` +
+          `路径：<code style="font-size:12px;background:#1a1d27;padding:2px 6px;border-radius:4px">${res.configPath}</code><br><br>` +
+          `<strong>下一步：</strong>重启 nanobot Gateway 使配置生效。`
+        );
+        // 通知父窗口重启 gateway
+        ipc.notifyRestart();
+      } else {
+        showStatus('error', `❌ 保存失败：${res.error || '未知错误'}`);
+      }
+    });
+
+    // ── 一键创建逻辑 ──────────────────────────────────────────────────────
+
+    const btnAutoCreate  = document.getElementById('btn-auto-create');
+    const btnAutoCancel  = document.getElementById('btn-auto-cancel');
+    const progressWrap   = document.getElementById('auto-progress-wrap');
+    const stepLabel      = document.getElementById('auto-step-label');
+    const stepNum        = document.getElementById('auto-step-num');
+    const progressBar    = document.getElementById('auto-progress-bar');
+    const stepsList      = document.getElementById('auto-steps-list');
+    const autoResult     = document.getElementById('auto-result');
+    const resultAppId    = document.getElementById('result-app-id');
+
+    const stepIcons = ['⏳','①','②','③','④','⑤','⑥','⑦','⑧'];
+
+    function renderStep(step, total, label, status) {
+      // 更新进度条
+      progressBar.style.width = `${Math.round((step / total) * 100)}%`;
+      stepLabel.textContent = label;
+      stepNum.textContent = `${step} / ${total}`;
+      // 追加步骤日志
+      const icon = status === 'done' ? '✅' : status === 'error' ? '❌' : stepIcons[step] || '⏳';
+      const div = document.createElement('div');
+      div.style.cssText = 'padding:3px 0; border-bottom:1px solid rgba(255,255,255,.05);';
+      div.textContent = `${icon} ${label}`;
+      if (status === 'error') div.style.color = 'var(--error)';
+      if (status === 'done')  div.style.color = 'var(--success)';
+      stepsList.appendChild(div);
+      stepsList.scrollTop = stepsList.scrollHeight;
+    }
+
+    // 监听主进程推送的进度
+    ipc.onCreateProgress((progress) => {
+      renderStep(progress.step, progress.total, progress.label, progress.status);
+
+      if (progress.status === 'done') {
+        progressBar.style.background = 'var(--success)';
+        progressBar.style.width = '100%';
+        btnAutoCancel.style.display = 'none';
+        btnAutoCreate.disabled = false;
+        if (progress.appId) {
+          autoResult.style.display = 'block';
+          resultAppId.textContent = progress.appId;
+          // 自动填入手动表单（方便用户再次验证）
+          document.getElementById('appId').value = progress.appId || '';
+          document.getElementById('appSecret').value = progress.appSecret || '';
+          ipc.notifyRestart();
+        }
+      } else if (progress.status === 'error') {
+        progressBar.style.background = 'var(--error)';
+        btnAutoCreate.disabled = false;
+        btnAutoCancel.style.display = 'none';
+        showStatus('warn',
+          `⚠️ 自动化遇到阻碍：${progress.error || ''}<br>` +
+          `请在上方弹出的浏览器窗口中手动完成，然后复制凭证到「手动输入」区域。`
+        );
+      }
+    });
+
+    btnAutoCreate.addEventListener('click', () => {
+      const appName = document.getElementById('auto-app-name').value.trim() || 'nanobot 助手';
+      btnAutoCreate.disabled = true;
+      progressWrap.style.display = 'block';
+      autoResult.style.display = 'none';
+      stepsList.innerHTML = '';
+      progressBar.style.width = '0';
+      progressBar.style.background = 'var(--accent)';
+      btnAutoCancel.style.display = 'block';
+      ipc.autoCreate({ appName });
+    });
+
+    btnAutoCancel.addEventListener('click', () => {
+      ipc.cancelAutoCreate();
+      btnAutoCreate.disabled = false;
+      btnAutoCancel.style.display = 'none';
+      stepLabel.textContent = '已取消';
+    });
+  </script>
+</body>
+</html>

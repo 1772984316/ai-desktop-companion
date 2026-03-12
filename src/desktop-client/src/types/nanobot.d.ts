@@ -26,7 +26,16 @@ export interface AuthFrame {
   token: string;
 }
 
-export type OutgoingFrame = SendFrame | PingFrame | AuthFrame;
+/**
+ * 会话恢复帧 — 连接建立后立即发送，
+ * 让 nanobot 使用持久化的 sessionId 恢复历史对话。
+ */
+export interface InitFrame {
+  type: 'init';
+  sessionId: string;   // 存储在本地的持久化 UUID
+}
+
+export type OutgoingFrame = SendFrame | PingFrame | AuthFrame | InitFrame;
 
 // ─────────────────────────────────────────────
 // nanobot → Electron  (接收帧)

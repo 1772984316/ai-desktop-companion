@@ -14,9 +14,11 @@
  *  主进程 → 渲染:  'nanobot:status'   payload: IpcStatusPayload
  */
 
-import { BrowserWindow, ipcMain } from 'electron';
+import { BrowserWindow, ipcMain, app } from 'electron';
 import WebSocket from 'ws';
 import { v4 as uuid } from 'uuid';
+import * as fs from 'fs';
+import * as path from 'path';
 import type {
   IncomingFrame,
   OutgoingFrame,
@@ -29,6 +31,32 @@ import type {
 const DEFAULT_URL          = 'ws://localhost:18790';
 const RECONNECT_DELAY_MS   = 3_000;   // 断线后 3 s 重连
 const PING_INTERVAL_MS     = 25_000;  // 25 s 心跳
+
+// ── 持久化 sessionId ──────────────────────────────────────────────────
+// 存储在 Electron userData 目录，App 重启后读取同一 ID，
+// nanobot 因此能恢复相同的对话历史。
+function loadOrCreateSessionId(): string {
+  try {
+    const dir  = app.getPath('userData');
+    const file = path.join(dir, 'nanobot-session.json');
+    if (fs.existsSync(file)) {
+      const data = JSON.parse(fs.readFileSync(file, 'utf-8'));
+      if (typeof data.sessionId === 'string' && data.sessionId) {
+        return data.sessionId;
+      }
+    }
+    // 首次运行：生成并保存
+    const newId = uuid();
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ sessionId: newId }, null, 2));
+    console.log(`[NanobotBridge] Created new persistent session ID: ${newId}`);
+    return newId;
+  } catch (err) {
+    // 降级：使用随机 ID（本次运行内有效）
+    console.warn('[NanobotBridge] Could not persist session ID:', err);
+    return uuid();
+  }
+}
 
 export interface BridgeOptions {
   /** 目标渲染窗口 */
@@ -46,6 +74,8 @@ export class NanobotBridge {
 
   private ws: WebSocket | null = null;
   private sessionId: string | null = null;
+  /** 跨重启持久化的会话 ID，用于恢复 nanobot 对话历史 */
+  private readonly persistentSessionId: string;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   private reconnTimer: ReturnType<typeof setTimeout> | null = null;
   private stopped = false;
@@ -54,6 +84,8 @@ export class NanobotBridge {
     this.win   = win;
     this.url   = url;
     this.token = token;
+    this.persistentSessionId = loadOrCreateSessionId();
+    console.log(`[NanobotBridge] Persistent session ID: ${this.persistentSessionId}`);
 
     // 监听渲染进程的发送事件
     ipcMain.on('nanobot:send', (_event, payload: IpcSendPayload) => {
@@ -94,6 +126,9 @@ export class NanobotBridge {
       if (this.token) {
         this.sendFrame({ type: 'auth', token: this.token });
       }
+      // 发送 init 帧：告知 nanobot 恢复持久化会话历史
+      this.sendFrame({ type: 'init', sessionId: this.persistentSessionId });
+      console.log(`[NanobotBridge] Sent init with sessionId: ${this.persistentSessionId}`);
     });
 
     ws.on('message', (data: WebSocket.RawData) => {

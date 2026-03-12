@@ -214,6 +214,10 @@
     <span class="title">nanobot 助手</span>
     <span id="status-dot" class="starting"></span>
     <span id="status-label">正在启动…</span>
+    <button id="btn-feishu-setup"
+      style="-webkit-app-region:no-drag;margin-left:auto;padding:4px 10px;background:transparent;
+             border:1px solid #3a3a5a;color:#8888a8;border-radius:6px;cursor:pointer;font-size:12px;"
+      title="配置飞书机器人">⚙️ 飞书</button>
   </div>
 
   <!-- 启动进度条 -->
@@ -424,6 +428,14 @@
     inputEl.style.height = 'auto';
     inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
   });
+
+  // ---- 飞书配置弹窗入口 ----
+  const feishuBtn = document.getElementById('btn-feishu-setup');
+  if (feishuBtn) {
+    feishuBtn.addEventListener('click', () => {
+      window.feishuAPI.openSetup();
+    });
+  }
 })();
 </script>
 </body>

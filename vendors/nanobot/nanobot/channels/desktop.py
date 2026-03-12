@@ -118,7 +118,10 @@ class DesktopChannel(BaseChannel):
 
     async def _handle_connection(self, ws: Any) -> None:
         """Handle a single Electron client connection."""
+        # conn_id is used for WebSocket routing (unique per physical connection)
         conn_id = uuid.uuid4().hex[:12]
+        # session_key is used for nanobot session history (persistent across reconnects)
+        session_key = conn_id
         remote = getattr(ws, "remote_address", "unknown")
         logger.info("Desktop: new connection [{}] from {}", conn_id, remote)
 
@@ -136,13 +139,47 @@ class DesktopChannel(BaseChannel):
                 await ws.close(code=4001, reason="Auth timeout")
                 return
 
-        self._connections[conn_id] = ws
+        # Accept optional init frame from Electron to restore a persistent session.
+        # Electron sends: {"type": "init", "sessionId": "<stored-uuid>"}
+        # We use a short timeout so clients that don't send init still work fine.
+        try:
+            raw_init = await asyncio.wait_for(ws.recv(), timeout=2.0)
+            init_data = json.loads(raw_init)
+            if init_data.get("type") == "init" and init_data.get("sessionId"):
+                session_key = str(init_data["sessionId"])
+                logger.info(
+                    "Desktop [{}]: restored persistent session [{}]",
+                    conn_id, session_key,
+                )
+            else:
+                # Not an init frame — process it as a normal message later
+                # Store it to re-dispatch after handshake
+                self._pending: dict[str, str] = getattr(self, "_pending", {})
+                self._pending[conn_id] = raw_init
+        except (asyncio.TimeoutError, json.JSONDecodeError, KeyError):
+            pass  # No init frame — use generated conn_id as session_key
 
-        # Send handshake so Electron knows its session ID
+        self._connections[conn_id] = ws
+        # Map conn_id → session_key so _dispatch_message can find it
+        if not hasattr(self, "_session_map"):
+            self._session_map: dict[str, str] = {}
+        self._session_map[conn_id] = session_key
+
+        # Send handshake — tell Electron which session it is on
         await ws.send(json.dumps({
             "type": "connected",
-            "sessionId": conn_id,
+            "sessionId": session_key,   # Electron should persist this
+            "connId": conn_id,
         }))
+
+        # Re-dispatch any message that arrived before the init handshake
+        pending_map = getattr(self, "_pending", {})
+        if conn_id in pending_map:
+            pending_raw = pending_map.pop(conn_id)
+            try:
+                await self._dispatch_message(conn_id, pending_raw)
+            except Exception as e:
+                logger.error("Desktop [{}]: error processing pending message: {}", conn_id, e)
 
         try:
             async for raw in ws:
@@ -154,6 +191,7 @@ class DesktopChannel(BaseChannel):
             logger.debug("Desktop [{}]: connection closed: {}", conn_id, e)
         finally:
             self._connections.pop(conn_id, None)
+            self._session_map.pop(conn_id, None)
             logger.info("Desktop: connection [{}] disconnected", conn_id)
 
     # ------------------------------------------------------------------
@@ -185,14 +223,18 @@ class DesktopChannel(BaseChannel):
             return
 
         sender_id = str(data.get("senderId") or conn_id)
+        # Use persistent session_key for nanobot session history;
+        # fall back to conn_id if mapping is missing (should not happen).
+        session_key = getattr(self, "_session_map", {}).get(conn_id, conn_id)
 
         await self._handle_message(
             sender_id=sender_id,
-            chat_id=conn_id,           # conn_id is used so send() can reverse-route
+            chat_id=conn_id,           # routing key: must match conn_id for send()
             content=content,
             metadata={
                 "from": "desktop",
                 "clientMsgId": data.get("id", ""),
+                "session_key": session_key,   # passed to session manager
             },
         )
 

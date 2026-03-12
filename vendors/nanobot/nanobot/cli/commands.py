@@ -301,6 +301,26 @@ def _print_deprecated_memory_window_notice(config: Config) -> None:
 
 
 # ============================================================================
+# Setup Wizards
+# ============================================================================
+
+# 创建 setup 子命令组
+setup_app = typer.Typer(
+    name="setup",
+    help="一键配置各渠道（飞书/Telegram 等）",
+    no_args_is_help=True,
+)
+app.add_typer(setup_app)
+
+
+@setup_app.command("feishu")
+def setup_feishu():
+    """飞书机器人一键配置向导 — 验证凭证并自动写入 config.json。"""
+    from nanobot.setup.feishu_wizard import run_cli_wizard
+    run_cli_wizard()
+
+
+# ============================================================================
 # Gateway / Server
 # ============================================================================
 

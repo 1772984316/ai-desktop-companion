@@ -7,10 +7,12 @@
  *  3. nanobot 就绪后建立 WebSocket 桥接（NanobotBridge）
  */
 
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, shell, ipcMain } from 'electron';
 import * as path from 'path';
 import { NanobotBridge } from './nanobot-bridge';
 import { NanobotProcess } from './nanobot-process';
+import { registerFeishuSetupIpc } from './feishu-setup';
+import { registerFeishuAutoCreateIpc } from './feishu-auto-create';
 
 let mainWindow: BrowserWindow | null = null;
 let bridge:     NanobotBridge  | null = null;
@@ -48,6 +50,46 @@ function createWindow(): void {
   });
 
   mainWindow.on('closed', () => { mainWindow = null; });
+
+  // 注册飞书配置 IPC 处理器
+  registerFeishuSetupIpc(mainWindow);
+  // 注册飞书一键创建 IPC 处理器
+  registerFeishuAutoCreateIpc(mainWindow);
+
+  // 「设置飞书」菜单/按钮点击 → 打开配置弹窗
+  ipcMain.on('feishu:open-setup', () => openFeishuSetupWindow());
+
+  // 配置保存后重启 nanobot gateway
+  ipcMain.on('nanobot:restart', () => {
+    console.log('[main] 收到重启请求，重新启动 nanobot gateway...');
+    bootNanobot(mainWindow!);
+  });
+}
+
+// ── 飞书配置弹窗 ───────────────────────────────────────────────────────
+let setupWin: BrowserWindow | null = null;
+
+function openFeishuSetupWindow(): void {
+  if (setupWin && !setupWin.isDestroyed()) {
+    setupWin.focus();
+    return;
+  }
+  setupWin = new BrowserWindow({
+    width:  600,
+    height: 720,
+    title:  '飞书机器人配置',
+    parent: mainWindow ?? undefined,
+    modal:  false,
+    backgroundColor: '#0f1117',
+    webPreferences: {
+      preload:          path.join(__dirname, '../renderer/preload.js'),
+      contextIsolation: true,
+      nodeIntegration:  false,
+      sandbox:          false,
+    },
+  });
+  setupWin.loadFile(path.join(__dirname, '../renderer/feishu-setup.html'));
+  setupWin.on('closed', () => { setupWin = null; });
 }
 
 // ── nanobot 启动流程 ──────────────────────────────────────────────────
