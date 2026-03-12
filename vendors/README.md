@@ -72,7 +72,7 @@ nanobot-main/
 VTuber 基础框架，提供 ASR/TTS/Live2D/WebSocket 能力。
 
 ```
-Open-LLM-VTuber-main/
+Open-LLM-VTuber/Open-LLM-VTuber-main/
 ├── src/
 │   └── open_llm_vtuber/         # 核心代码
 │       ├── server.py            # FastAPI 服务器
@@ -163,10 +163,10 @@ src/
 cd ai-desktop-companion
 
 # 添加 nanobot
-git submodule add https://github.com/HKUDS/nanobot.git
+git submodule add https://github.com/HKUDS/nanobot.git vendors/nanobot-main
 
 # 添加 Open-LLM-VTuber
-git submodule add https://github.com/Open-LLM-VTuber/Open-LLM-VTuber.git
+git submodule add https://github.com/Open-LLM-VTuber/Open-LLM-VTuber.git vendors/Open-LLM-VTuber
 
 # 克隆时自动拉取 submodule
 git clone --recursive <repo-url>

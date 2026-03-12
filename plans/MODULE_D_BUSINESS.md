@@ -17,28 +17,29 @@
 
 ## Sprint 1 任务（第1-4周）
 
-### D1: 应用启动工具
-
-**时间**：第1周（12小时）
+### D1: 桌面工具集与安全审计
+**时间**：第1周（16小时）
 
 **任务清单**：
 
 ```
-- [ ] 创建 open_app 工具
-- [ ] 创建 open_url 工具
-- [ ] 实现白名单机制
-- [ ] 审计日志
+- [ ] 实现 Tool 接口 (TS)
+- [ ] 实现 open_app / open_url 工具
+- [ ] 实现 AppWhitelist (JSON 配置)
+- [ ] 实现操作审计日志 (Audit Log)
+- [ ] 实现“二次确认” UI 流程 (IPC 调用前端弹窗)
 ```
 
 **文件结构**：
 
 ```
-nanobot/agent/tools/
-├── desktop.py      # 桌面工具
-
+src/main/
+├── tools/
+│   ├── desktop.ts       # 桌面工具
+│   ├── whitelist.ts     # 白名单逻辑
+│   └── audit.ts         # 审计日志
 config/
-├── app_whitelist.json    # 应用白名单
-└── url_whitelist.json    # URL 白名单
+└── whitelist.json       # 默认白名单
 ```
 
 **代码骨架**：

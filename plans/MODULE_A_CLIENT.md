@@ -141,137 +141,29 @@ desktop-companion/
 
 ---
 
-### A2: WebSocket 通信层
+### A2: IPC 通信与音频管线
 
 **时间**：第2周（16小时）
 
 **任务清单**：
 
 ```
-- [ ] 创建 WebSocketService 类
-- [ ] 实现消息发送
-- [ ] 实现消息接收与分发
-- [ ] 实现心跳保活
-- [ ] 实现断线重连（指数退避）
-- [ ] 实现连接状态管理
-- [ ] 实现离线消息队列
-- [ ] 添加类型定义
-- [ ] 与后端协议冻结（Sprint 1 末）
+- [ ] 定义 IPC 消息类型 (S2S/Text/Action)
+- [ ] 实现 AudioWorklet (播放流式 PCM 16k)
+- [ ] 实现 AudioProcessor (采集 16k PCM + VAD 门限)
+- [ ] 实现全双工音频流 (Renderer <-> Main)
 ```
 
-**文件结构**：
+**关键技术 (AudioWorklet)**：
 
-```
-renderer/
-├── services/
-│   ├── websocket.ts     # WebSocket 服务
-│   └── messageQueue.ts  # 离线消息队列
-├── types/
-│   └── messages.ts      # 消息类型定义
-```
-
-**消息协议**（需与后端保持一致）：
-
-```typescript
-// 发送消息类型
-type ClientMessage =
-  | { type: 'text'; content: string; metadata?: object }
-  | { type: 'voice'; audio: string; format: string }
-  | { type: 'screenshot'; image: string; query: string }
-  | { type: 'system'; event: string; data: object };
-
-// 接收消息类型
-type ServerMessage =
-  | { type: 'message'; content: string; is_final: boolean }
-  | { type: 'progress'; content: string }
-  | { type: 'action'; action: Live2DAction }
-  | { type: 'audio'; audio: string; text: string }
-  | { type: 'error'; code: string; message: string };
-```
-
-**验收标准**：
-
-```gherkin
-Feature: WebSocket Communication
-
-  Scenario: Connect to server
-    Given the app is launched
-    When WebSocket service starts
-    Then it should connect to ws://localhost:18790
-    And connection state should be "connected"
-
-  Scenario: Send text message
-    Given WebSocket is connected
-    When user sends "你好"
-    Then a message should be sent to server
-    And the message type should be "text"
-
-  Scenario: Receive response
-    Given WebSocket is connected
-    And a message was sent
-    When server sends response
-    Then the response should be displayed
-    And if is_final is true, show complete message
-
-  Scenario: Auto reconnect
-    Given WebSocket is connected
-    When connection is lost
-    Then it should retry connecting
-    And retry interval should increase (1s, 2s, 4s, ...)
-    And max retry interval should be 30s
-```
-
-**AI 提示词（示例参考）**：
-
-```
-请实现 Electron 与 nanobot 后端的 WebSocket 通信模块。
-
-## 文件结构
-
-renderer/
-├── services/
-│   ├── websocket.ts     # WebSocket 服务类
-│   └── messageQueue.ts  # 离线消息队列
-├── types/
-│   └── messages.ts      # 消息类型定义
-
-## 功能要求
-
-1. WebSocketService 类：
-   - 连接到 ws://localhost:18790
-   - 发送/接收消息
-   - 心跳保活（每30秒发送 ping）
-   - 断线自动重连（指数退避：1s, 2s, 4s...最大30s）
-   - 连接状态事件（connecting, connected, disconnected, error）
-   - 消息分发（事件订阅模式）
-
-2. MessageQueue 类：
-   - 离线时缓存消息
-   - 连接恢复后批量发送
-   - 最大缓存100条
-
-3. 消息类型：
-   - ClientMessage: text | voice | screenshot | system
-   - ServerMessage: message | progress | action | audio | error
-
-## 类型定义
-
-interface WebSocketService {
-  connect(): Promise<void>;
-  disconnect(): void;
-  send(message: ClientMessage): void;
-  on(event: string, callback: Function): void;
-  off(event: string, callback: Function): void;
-  state: ConnectionState;
+```javascript
+// renderer/public/pcm-player.js
+class PCMPlayerProcessor extends AudioWorkletProcessor {
+  process(inputs, outputs) {
+    // 从 RingBuffer 读取 PCM 数据并写入 output
+    // 实现平滑播放，避免爆音
+  }
 }
-
-## 要求
-
-- 完整的 TypeScript 类型
-- 错误处理
-- 使用 EventTarget 或类似模式
-
-请生成完整代码。
 ```
 
 ---

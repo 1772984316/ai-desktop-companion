@@ -14,28 +14,33 @@
 ├─────────────────────────────────────────────────────────────────┤
 │  桌宠窗口  │  语音采集  │  音频播放  │  Live2D渲染  │  UI面板    │
 └───────────────────────────┬─────────────────────────────────────┘
-                            │ WebSocket (ws://localhost:18790)
+                            │ Electron IPC (Main <-> Renderer)
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                     nanobot gateway（主服务）                     │
+│                   Electron Main Process (Node.js)               │
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │DesktopChannel│  │ AgentLoop  │  │ Heartbeat   │  ← nanobot   │
-│  │   (新增)    │  │   (复用)   │  │   (复用)    │              │
+│  │     IPC     │  │  AgentLoop  │  │ Heartbeat   │  (TS重写)    │
+│  │   Handler   │  │   (Core)    │  │  Service    │              │
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │MemoryStore │  │ ToolRegistry│  │SessionMgr  │  ← nanobot   │
-│  │   (复用)   │  │  (复用+扩展)│  │   (复用)    │              │
+│  │ MemoryStore │  │ ToolsMgr    │  │ SessionMgr  │  (TS重写)    │
+│  │ (File/DB)   │  │ (Node.js)   │  │ (Local)     │              │
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │              VtuberExtension（新增）                     │    │
+│  │               AI Services (Hybrid Mode)                 │    │
 │  │  ┌─────────┐  ┌─────────┐  ┌─────────────┐              │    │
-│  │  │ ASR服务 │  │ TTS服务 │  │ Live2D控制 │              │    │
+│  │  │ whisper │  │ edge-tts│  │ Live2D Logic│              │    │
+│  │  │ -node   │  │ (npm)   │  │ (TS Port)   │              │    │
 │  │  └─────────┘  └─────────┘  └─────────────┘              │    │
+│  │  ┌───────────────────────┐  ┌─────────────┐              │    │
+│  │  │ DoubaoRealtimeClient  │  │ BypassAgent │              │    │
+│  │  │ (S2S API)             │  │ (Observer)  │              │    │
+│  │  └───────────────────────┘  └─────────────┘              │    │
 │  └─────────────────────────────────────────────────────────┘    │
 └───────────────────────────┬─────────────────────────────────────┘
-                            │
+                            │ HTTP / Native Calls
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                         外部服务                                 │
@@ -50,147 +55,111 @@
 | 层级 | 技术 | 说明 |
 |------|------|------|
 | 客户端 | Electron + TypeScript | 桌面应用框架 |
-| 通信 | WebSocket | 实时双向通信 |
-| 主服务 | nanobot (Python) | Agent 核心 |
-| Agent | AgentLoop + Tools | 复用 nanobot |
-| ASR | Whisper / 云服务 | 语音识别 |
-| TTS | Edge-TTS / 云服务 | 语音合成 |
-| Live2D | Pixi.js + Live2D SDK | 角色渲染 |
-| 打包 | electron-builder + Inno Setup | 安装程序 |
+| 通信 | Electron IPC | 进程间通信 |
+| 后端 | Node.js (Electron Main) | Agent 核心 (TS重写) |
+| S2S | Doubao Realtime API | 端到端语音 (WebSocket) |
+| ASR | whisper-node | 兼容模式语音识别 |
+| TTS | edge-tts | 兼容模式语音合成 |
+| Live2D | Pixi.js + Live2D SDK | 角色渲染 + AudioWorklet |
+| 打包 | electron-builder | 标准打包 |
 
 ---
 
-## 2. nanobot 能力复用
+## 2. 后端核心 (Node.js/TS)
 
-### 2.1 直接复用（无需修改）
+### 2.1 核心模块 (TS 重写)
 
 | 模块 | 路径 | 功能 |
 |------|------|------|
-| AgentLoop | `nanobot/agent/loop.py` | 消息处理、LLM调用、工具执行循环 |
-| SessionManager | `nanobot/session/manager.py` | 会话创建、历史管理 |
-| MemoryStore | `nanobot/agent/memory.py` | 长期记忆存储与检索 |
-| ContextBuilder | `nanobot/agent/context.py` | 系统提示词、上下文构建 |
-| ToolRegistry | `nanobot/agent/tools/registry.py` | 工具注册与执行 |
-| SkillsLoader | `nanobot/agent/skills.py` | 技能加载 |
-| Heartbeat | `nanobot/heartbeat/service.py` | 主动触发心跳 |
-| MessageBus | `nanobot/bus/queue.py` | 消息总线 |
+| AgentLoop | `src/main/agent/loop.ts` | 核心循环：接收IPC -> 思考 -> 工具/回复 |
+| BypassAgent | `src/main/agent/bypass.ts` | 旁路监听：S2S对话 -> 意图识别 -> 工具执行 |
+| RealtimeClient | `src/main/services/doubao.ts` | 豆包 S2S 客户端 (WebSocket) |
+| MemoryStore | `src/main/memory/store.ts` | 长期记忆 (基于 JSON/SQLite) |
+| ContextBuilder | `src/main/agent/context.ts` | Prompt 组装 |
+| ToolRegistry | `src/main/tools/registry.ts` | 工具管理 |
+| IPC Handler | `src/main/ipc/handler.ts` | 处理渲染进程消息 |
 
-### 2.2 扩展实现
+### 2.2 AI 服务集成 (双模式)
 
-| 模块 | 基类 | 新实现 | 功能 |
-|------|------|--------|------|
-| DesktopChannel | `BaseChannel` | 新增 | Electron 客户端通信 |
-| DesktopTools | `Tool` | 新增 | 桌面操作工具 |
-| VtuberExtension | - | 新增 | ASR/TTS/Live2D 封装 |
-| ScreenPerception | - | 新增 | 截图解析 + 视觉模型接入 |
+| 模块 | 库/API | 说明 |
+|------|----|------|
+| **S2S Service** | `Doubao Realtime API` | **核心模式**：端到端语音对话 (<1s延迟) |
+| ASR Service | `whisper-node` | 兼容模式：本地语音转文字 |
+| VAD Service | `@ricky0123/vad-node` | 通用：静音检测 (减少上传流量) |
+| TTS Service | `edge-tts` | 兼容模式：语音合成 |
+| Vision Service | `screenshot-desktop` | 屏幕捕获 |
 
 ---
 
-## 3. DesktopChannel 设计
+## 3. DesktopChannel 设计 (已废弃)
 
-### 3.1 类结构
+> 原 nanobot 的 DesktopChannel (Python) 方案已废弃，直接使用 Electron IPC 通信。
 
-```python
-# nanobot/channels/desktop.py
+### 3.1 IPC 消息定义 (TypeScript)
 
-from nanobot.channels.base import BaseChannel
-from nanobot.bus.events import InboundMessage, OutboundMessage
+```typescript
+// src/shared/types/ipc.ts
 
-class DesktopChannel(BaseChannel):
-    """Electron 桌面客户端通道"""
-    
-    name = "desktop"
-    
-    async def start(self) -> None:
-        """启动 WebSocket 服务器"""
-        
-    async def stop(self) -> None:
-        """停止服务"""
-        
-    async def send(self, msg: OutboundMessage) -> None:
-        """发送消息到客户端"""
+export type ClientMessage = 
+  | { type: 'text'; content: string }
+  | { type: 'audio'; buffer: ArrayBuffer } // 16k PCM
+  | { type: 'action'; name: string };
+
+export type ServerMessage =
+  | { type: 'text'; content: string; isFinal: boolean }
+  | { type: 'audio'; buffer: ArrayBuffer }
+  | { type: 'cmd'; action: string };
 ```
 
-### 3.2 WebSocket 消息协议
+---
 
-#### 客户端 → 服务端
+## 4. AI Service 设计 (Node.js)
 
-```json
-{
-  "type": "text|voice|screenshot|system",
-  "content": "用户消息",
-  "audio": "base64...",
-  "image": "base64...",
-  "metadata": {
-    "conversation_id": "uuid",
-    "request_id": "uuid",
-    "timestamp": 1710000000
+### 4.1 S2S 客户端 (DoubaoRealtimeClient)
+
+```typescript
+// src/main/services/doubao/client.ts
+
+export class DoubaoRealtimeClient extends EventEmitter {
+  private ws: WebSocket;
+  
+  constructor(config: DoubaoConfig) {
+    super();
+    // ...
+  }
+  
+  public sendAudio(chunk: Buffer) {
+    // 封包为二进制帧发送
+  }
+  
+  private handleMessage(data: Buffer) {
+    // 拆包 -> emit 'audio' | 'text'
   }
 }
 ```
 
-#### 服务端 → 客户端
+### 4.2 旁路监听 (BypassAgent)
 
-```json
-{
-  "type": "message|progress|audio|action|tool_request",
-  "content": "AI响应",
-  "audio": "base64...",
-  "action": {"type": "motion", "name": "wave"},
-  "metadata": {
-    "request_id": "uuid",
-    "is_final": true,
-    "sequence": 3
+```typescript
+// src/main/agent/bypass.ts
+
+export class BypassAgent {
+  constructor(private llm: LLMService, private tools: ToolRegistry) {}
+  
+  public async onUserText(text: string) {
+    // 1. 意图识别
+    const intent = await this.llm.classify(text);
+    
+    // 2. 如果是工具调用
+    if (intent.type === 'tool_use') {
+      const result = await this.tools.execute(intent.toolName, intent.args);
+      // 3. 记录审计日志
+    }
+    
+    // 4. 更新短期记忆
+    this.memory.add(text);
   }
 }
-```
-
-#### 协议一致性约束（补充）
-- **request_id 必填**：用于流式响应拼接与断线恢复。
-- **sequence 递增**：保证流式消息顺序可重建。
-- **conversation_id 贯通**：打通记忆与埋点的链路归因。
-
----
-
-## 4. VtuberExtension 设计
-
-### 4.1 架构
-
-```python
-# nanobot/extensions/vtuber/__init__.py
-
-class VtuberExtension:
-    """视听能力扩展"""
-    
-    def __init__(self, bus: MessageBus, config: dict):
-        self.asr = create_asr_provider(config["asr"])
-        self.tts = create_tts_provider(config["tts"])
-        self.live2d = Live2DController(config["live2d"])
-    
-    async def on_inbound(self, msg: InboundMessage):
-        """处理入站消息：语音→文本"""
-        if msg.metadata.get("needs_asr"):
-            text = await self.asr.transcribe(msg.metadata["audio_data"])
-            # 重新发送文本消息
-    
-    async def on_outbound(self, msg: OutboundMessage):
-        """处理出站消息：文本→语音+动作"""
-        if msg.content:
-            audio = await self.tts.synthesize(msg.content)
-            action = self.live2d.get_action(msg.content)
-            # 发送音频和动作
-```
-
-### 4.2 ASR/TTS 接口
-
-```python
-class ASRProvider(ABC):
-    @abstractmethod
-    async def transcribe(self, audio: bytes) -> str: ...
-
-class TTSProvider(ABC):
-    @abstractmethod
-    async def synthesize(self, text: str) -> bytes: ...
 ```
 
 ---
@@ -235,35 +204,33 @@ class TTSProvider(ABC):
 ```
 用户语音
     ↓
-Electron (采集 + base64)
+Electron Renderer (采集 + VAD)
     ↓
-DesktopChannel (WebSocket)
+IPC (Main Process)
     ↓
-VtuberExtension (ASR → 文本)
+ASR Service (whisper-node)
     ↓
-AgentLoop (LLM推理)
+Agent Core (LLM推理)
     ↓
-VtuberExtension (TTS → 音频 + Live2D动作)
+TTS Service (edge-tts)
     ↓
-DesktopChannel
+Live2D Logic (LipSync + Motion)
     ↓
-Electron (播放 + 渲染动作)
+Electron Renderer (播放 + 渲染)
 ```
 
 ### 6.2 主动触发流程
 
 ```
-Heartbeat 定时检查
+Heartbeat Service (Main Process)
     ↓
 触发规则匹配
     ↓
-策略判定（频控/静默/场景）
+Agent Core 生成消息
     ↓
-生成主动消息
+IPC 推送
     ↓
-DesktopChannel 推送
-    ↓
-Electron 显示
+Electron Renderer 显示
 ```
 
 ---
@@ -275,29 +242,17 @@ Electron 显示
   "providers": {
     "openai": {"apiKey": "${OPENAI_API_KEY}"}
   },
-  "agents": {
-    "defaults": {
-      "model": "gpt-4o",
-      "workspace": "${USER_DATA}/workspace"
-    }
+  "agent": {
+    "model": "gpt-4o",
+    "systemPrompt": "prompts/system.md"
   },
-  "channels": {
-    "desktop": {
-      "enabled": true,
-      "port": 18790,
-      "host": "localhost"
-    }
-  },
-  "extensions": {
-    "vtuber": {
-      "asr": {"provider": "whisper", "model": "base"},
-      "tts": {"provider": "edge", "voice": "zh-CN-XiaoxiaoNeural"},
-      "live2d": {"model": "shizuku"}
-    }
+  "services": {
+    "asr": {"model": "base", "language": "zh"},
+    "tts": {"voice": "zh-CN-XiaoxiaoNeural"},
+    "vad": {"threshold": 0.5}
   },
   "tools": {
-    "whitelist": "config/whitelist.json",
-    "restrictToWorkspace": true
+    "whitelist": "config/whitelist.json"
   }
 }
 ```
@@ -312,14 +267,10 @@ Electron 显示
 
 ```
 DesktopCompanion-Setup.exe
-├── resources/
-│   ├── app.asar          # Electron 应用
-│   ├── python/           # Python 嵌入式环境
-│   ├── nanobot/          # nanobot 源码
-│   ├── extensions/       # 扩展模块
-│   └── config/           # 配置文件
-├── launcher.exe          # 启动器
-└── install.bat           # 安装脚本
+├── Electron 主进程 (Node.js)
+├── Renderer 资源 (UI + Live2D)
+├── 本地 AI 模型 (可选/按需下载)
+└── 配置文件
 ```
 
 ### 8.2 运行时目录
@@ -327,11 +278,12 @@ DesktopCompanion-Setup.exe
 ```
 %APPDATA%/DesktopCompanion/
 ├── config.json           # 用户配置
-├── workspace/            # nanobot 工作区
-│   ├── memory/          # 记忆存储
-│   ├── sessions/        # 会话数据
-│   └── skills/          # 用户技能
-└── logs/                # 日志
+├── workspace/            # 用户数据
+│   ├── memory/           # 记忆存储 (SQLite)
+│   ├── sessions/         # 会话历史
+│   ├── logs/             # 运行日志
+│   └── audit/            # 审计日志
+└── resources/            # 动态资源
 ```
 
 ---
@@ -340,34 +292,34 @@ DesktopCompanion-Setup.exe
 
 | 指标 | 目标 | 说明 |
 |------|------|------|
-| 冷启动 | < 8s | 从点击到可用 |
-| 常驻内存 | < 800MB | 稳定运行时 |
+| 冷启动 | < 10s | 从点击到可用 |
+| 常驻内存 | < 1GB | 稳定运行时 (PyTorch依赖) |
 | 文本首字 | < 1.5s | 从发送到首token |
 | 语音端到端 | < 3s | 从说完到开始播放 |
-| 安装包 | < 200MB | 不含本地模型 |
+| 安装包 | < 800MB | 含本地模型与运行时 |
 
 ---
 
 ## 10. 文件位置
 
-### 10.1 新增文件
+### 10.1 Electron Main Process
 
 | 文件 | 职责 |
 |------|------|
-| `nanobot/channels/desktop.py` | DesktopChannel |
-| `nanobot/channels/desktop/protocol.py` | 消息协议 |
-| `nanobot/extensions/vtuber/__init__.py` | VtuberExtension |
-| `nanobot/extensions/vtuber/asr.py` | ASR Provider |
-| `nanobot/extensions/vtuber/tts.py` | TTS Provider |
-| `nanobot/extensions/vtuber/live2d.py` | Live2D Controller |
-| `nanobot/extensions/vtuber/emotion.py` | 情绪识别 |
-| `nanobot/agent/tools/desktop.py` | 桌面工具 |
-| `config/whitelist.json` | 白名单配置 |
+| `src/main/index.ts` | 应用入口 |
+| `src/main/ipc/index.ts` | IPC 路由 |
+| `src/main/services/agent.ts` | Agent 核心逻辑 |
+| `src/main/services/audio.ts` | 音频处理 (ASR/TTS) |
+| `src/main/services/vision.ts` | 视觉处理 |
 
-### 10.2 修改文件
+## 11. Vendor 参考说明
 
-| 文件 | 修改内容 |
-|------|----------|
-| `nanobot/config/schema.py` | 添加 DesktopChannelConfig |
-| `nanobot/channels/__init__.py` | 注册 DesktopChannel |
-| `nanobot/agent/tools/__init__.py` | 注册桌面工具 |
+本项目核心代码已迁移至 Node.js，`vendors/` 目录下的代码仅作为逻辑参考：
+
+### 11.1 `vendors/nanobot-main` (Python)
+- **仅作参考**：协议设计、工具接口定义、Heartbeat 逻辑结构。
+- **不可运行**：本项目不包含 Python 运行时，无法直接执行此目录下的代码。
+
+### 11.2 `vendors/Open-LLM-VTuber-main`
+- **仅作参考**：Live2D 模型加载逻辑、口型同步算法 (LipSync)。
+- **迁移目标**：需将其中的 Python/JS 逻辑移植到 `src/main/services/live2d` (Node.js)。

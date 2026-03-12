@@ -10,10 +10,10 @@
 
 | 成员 | 角色 | 主要职责 | 技术栈 |
 |------|------|----------|--------|
-| **A** | 客户端开发 | Electron 桌面应用、UI、Live2D | TypeScript, Electron |
-| **B** | 后端核心 | nanobot 集成、DesktopChannel、打包 | Python, WebSocket |
-| **C** | AI能力 | ASR/TTS/Live2D、情绪映射 | Python, 音频 |
-| **D** | 业务功能 | 桌面工具、订阅、埋点 | Python, DB |
+| **A** | 客户端开发 | Electron 桌面应用、UI、Live2D、AudioWorklet | TypeScript, Electron, Pixi.js |
+| **B** | 后端核心 | Node.js Agent Core、S2S Client、Bypass Logic | TypeScript, Node.js |
+| **C** | AI能力 | S2S 协议封装、ASR/TTS/VAD 服务集成 | TypeScript, Buffer, Audio |
+| **D** | 业务功能 | 桌面工具、记忆系统、订阅支付 | TypeScript, SQLite |
 
 ---
 
@@ -84,47 +84,43 @@ Week 1   Week 2   Week 3   Week 4   Week 5   Week 6   Week 7   Week 8   Week 9  
 
 ---
 
-#### 任务 A2：WebSocket 连接与消息处理
+#### 任务 A2：IPC 通信与音频管线
 **时间**：第2周（16小时）
 
 **任务描述**：
-实现 Electron 与 nanobot 的 WebSocket 通信。
+实现 Electron Main 与 Renderer 之间的 IPC 通信，以及基于 AudioWorklet 的全双工音频流处理。
 
 **具体工作**：
-1. WebSocket 客户端封装
-2. 消息发送/接收
-3. 连接状态管理
-4. 断线重连机制
-5. 消息队列（离线缓存）
+1. 定义 IPC 消息类型 (S2S/Text/Action)
+2. 实现 AudioWorklet (播放流式 PCM 16k)
+3. 实现 AudioProcessor (采集 16k PCM + VAD 门限)
+4. 实现全双工音频流 (Renderer <-> Main)
 
 **验收标准**：
-- [ ] 可连接到 nanobot
-- [ ] 消息双向收发正常
-- [ ] 断线可自动重连
-- [ ] 离线消息可缓存
+- [ ] 录音采集正常 (16k PCM)
+- [ ] VAD 门限生效
+- [ ] 流式播放无卡顿
+- [ ] IPC 双向通信正常
 
 **AI 提示词（示例参考）**：
 ```
-请帮我实现 Electron 与 nanobot 的 WebSocket 通信模块：
+请帮我实现 Electron 与 Main Process 的 IPC 通信模块，以及 AudioWorklet 音频管线：
 
-1. 创建 WebSocketService 类：
-   - 连接到 ws://localhost:18790
-   - 消息发送/接收
-   - 心跳保活
-   - 断线自动重连（指数退避）
-   - 连接状态事件
+1. 创建 AudioService 类 (Renderer)：
+   - 加载 AudioWorkletProcessor
+   - 实现 16k PCM 麦克风采集
+   - 实现 PCM 流式播放
+   - 实现 VAD 门限检测 (前端简单版)
 
-2. 消息类型：
-   - 发送：{ type: "text", content: "..." }
-   - 接收：{ type: "message", content: "..." }
-   - 接收：{ type: "progress", content: "..." }
-   - 接收：{ type: "action", action: {...} }
-   - 接收：{ type: "audio", audio: "base64..." }
+2. 定义 IPC 消息协议 (Types)：
+   - 双向流：`audio:stream` (ArrayBuffer)
+   - 文本消息：`agent:text`
+   - 系统动作：`tool:action`
 
 3. 要求：
    - 使用 TypeScript
-   - 提供类型定义
-   - 支持事件订阅模式
+   - 提供 AudioWorkletProcessor 代码 (pcm-player.js)
+   - 处理 Electron 进程安全 (ContextBridge)
 
 请生成完整的代码。
 ```
@@ -172,189 +168,131 @@ Week 1   Week 2   Week 3   Week 4   Week 5   Week 6   Week 7   Week 8   Week 9  
 
 ---
 
-### 成员 B：后端核心
+### 成员 B：后端核心 (Node.js)
 
-#### 任务 B1：DesktopChannel 基础实现
-**时间**：第1周（16小时）
+#### 任务 B1：Agent Core 基础框架
+**时间**：第1周（20小时）
 
 **任务描述**：
-在 nanobot 中实现 DesktopChannel，作为 Electron 的通信桥梁。
+使用 TypeScript 重写轻量级 Agent Loop，作为系统的决策中枢。
 
 **具体工作**：
-1. 创建 DesktopChannel 类（继承 BaseChannel）
-2. 实现 WebSocket 服务端
-3. 客户端连接管理
-4. 消息收发循环
-5. 基础权限校验
+1. 定义 Agent 接口 (Input/Output/State)
+2. 实现基础 Loop (接收 -> 思考 -> 行动)
+3. 集成 LLM SDK (OpenAI/Doubao)
+4. 实现 System Prompt 构建器
 
 **代码位置**：
-- `nanobot/channels/desktop.py`
-- `nanobot/channels/desktop/__init__.py`
-
-**验收标准**：
-- [ ] 服务可启动
-- [ ] 客户端可连接
-- [ ] 消息双向收发
-
-**AI 提示词（示例参考）**：
-```
-请在 nanobot 中实现 DesktopChannel：
-
-1. 参考 nanobot/channels/telegram.py 和 nanobot/channels/base.py
-
-2. 创建文件：
-   nanobot/channels/desktop.py
-
-3. 类设计：
-   class DesktopChannel(BaseChannel):
-       name = "desktop"
-       
-       async def start(self):
-           # 启动 WebSocket 服务器
-           # 端口: 18790
-       
-       async def stop(self):
-           # 停止服务
-       
-       async def send(self, msg: OutboundMessage):
-           # 发送消息给客户端
-       
-       async def _handle_client(self, websocket):
-           # 处理客户端连接
-           # 接收消息 -> _handle_message()
-
-4. 使用 websockets 库
-
-5. 配置：
-   在 nanobot/config/schema.py 添加 DesktopChannelConfig
-
-请生成完整的 Python 代码。
-```
+- `src/main/agent/loop.ts`
+- `src/main/agent/context.ts`
 
 ---
 
-#### 任务 B2：消息协议实现
-**时间**：第2周（12小时）
+#### 任务 B2：Bypass Agent (旁路监听)
+**时间**：第2周（16小时）
 
 **任务描述**：
-定义完整的消息协议，实现序列化/反序列化。
+实现 S2S 模式下的旁路意图识别模块。
 
 **具体工作**：
-1. 定义消息类型枚举
-2. 实现消息序列化器
-3. 实现消息解析器
-4. 流式消息支持
-5. 错误处理
+1. 监听 S2S 文本流 (User & AI)
+2. 触发意图识别 (LLM Call)
+3. 提取工具调用指令
+4. 异步执行工具
 
 **代码位置**：
-- `nanobot/channels/desktop/protocol.py`
-- `nanobot/channels/desktop/serializer.py`
+- `src/main/agent/bypass.ts`
 
 ---
 
-#### 任务 B3：nanobot 配置扩展
+#### 任务 B3：nanobot 配置移植
 **时间**：第2周（8小时）
 
 **任务描述**：
-扩展 nanobot 配置以支持 DesktopChannel。
+将原 nanobot 配置结构移植到 Node.js，支持新架构配置。
 
 **具体工作**：
-1. 添加 DesktopChannelConfig
-2. 添加 VtuberExtensionConfig
-3. 配置验证
+1. 定义 Config 接口 (TS)
+2. 实现配置加载器 (dotenv + json)
+3. 配置验证 (Zod)
 4. 默认配置模板
 
 **代码位置**：
-- `nanobot/config/schema.py`
+- `src/main/config/index.ts`
+- `src/main/config/schema.ts`
 
 ---
 
-#### 任务 B4：Python 环境嵌入
+#### 任务 B4：Electron 构建配置
 **时间**：第3周（12小时）
 
 **任务描述**：
-准备 Python 嵌入式环境，用于打包。
-
-**具体工作**：
-1. 下载 Python embed 包
-2. 安装 nanobot 依赖
-3. 精简不必要的包
-4. 创建安装脚本
-
----
-
-#### 任务 B5：Electron 打包配置
-**时间**：第4周（12小时）
-
-**任务描述**：
-配置 electron-builder 打包，整合 Python 环境。
+配置 electron-builder，处理原生模块编译。
 
 **具体工作**：
 1. 配置 electron-builder
-2. 整合 Python 资源
-3. ASAR 打包配置
-4. 构建脚本
+2. 配置 electron-rebuild (Native Modules)
+3. 资源文件拷贝规则
+4. 构建脚本编写
+
+**代码位置**：
+- `electron-builder.json`
+- `scripts/rebuild.js`
 
 ---
 
-### 成员 C：AI 能力
-
-#### 任务 C1：ASR Provider 实现
-**时间**：第1周（16小时）
+#### 任务 B5：CI/CD 基础
+**时间**：第4周（12小时）
 
 **任务描述**：
-实现语音识别（ASR）模块。
+搭建基础的 CI/CD 流程，自动构建 Release。
 
 **具体工作**：
-1. 创建 ASR Provider 接口
-2. 实现 Whisper ASR
-3. 实现音频格式转换
-4. 错误处理
-5. 性能优化
+1. GitHub Actions 配置
+2. 自动测试运行
+3. 自动构建 Release
+4. 自动生成 Changelog
 
 **代码位置**：
-- `nanobot/extensions/vtuber/asr.py`
-
-**AI 提示词（示例参考）**：
-```
-请实现 ASR Provider：
-
-1. 创建 nanobot/extensions/vtuber/asr.py
-
-2. 接口设计：
-   class ASRProvider(ABC):
-       async def transcribe(self, audio_data: bytes) -> str:
-           """语音转文字"""
-
-3. 实现 WhisperASRProvider：
-   - 使用 openai-whisper 或 faster-whisper
-   - 支持多语言（默认中文）
-   - 返回识别文本
-
-4. 要求：
-   - 异步实现
-   - 错误处理
-   - 支持配置模型大小
-
-请生成完整的 Python 代码。
-```
+- `.github/workflows/build.yml`
 
 ---
 
-#### 任务 C2：TTS Provider 实现
-**时间**：第2周（12小时）
+### 成员 C：AI 能力 (Node.js)
+
+#### 任务 C1：S2S 协议封装
+**时间**：第1周（20小时）
 
 **任务描述**：
-实现语音合成（TTS）模块。
+实现豆包 Realtime API 的 WebSocket 客户端，处理二进制协议。
 
 **具体工作**：
-1. 创建 TTS Provider 接口
-2. 实现 Edge TTS
-3. 音频格式处理
-4. 缓存机制
+1. 实现握手与鉴权
+2. 实现二进制帧封包/拆包
+3. 实现流式音频发送 (Chunking)
+4. 实现流式接收缓冲
 
 **代码位置**：
-- `nanobot/extensions/vtuber/tts.py`
+- `src/main/services/doubao/client.ts`
+- `src/main/services/doubao/protocol.ts`
+
+---
+
+#### 任务 C2：兼容模式服务集成
+**时间**：第2周（16小时）
+
+**任务描述**：
+集成本地 ASR/TTS/VAD 库，作为 S2S 的降级方案。
+
+**具体工作**：
+1. 集成 `whisper-node`
+2. 集成 `edge-tts`
+3. 集成 `@ricky0123/vad-node`
+4. 封装统一 AudioService 接口
+
+**代码位置**：
+- `src/main/services/audio/asr.ts`
+- `src/main/services/audio/tts.ts`
 
 ---
 
@@ -371,107 +309,80 @@ Week 1   Week 2   Week 3   Week 4   Week 5   Week 6   Week 7   Week 8   Week 9  
 4. 可配置映射
 
 **代码位置**：
-- `nanobot/extensions/vtuber/emotion.py`
-- `nanobot/extensions/vtuber/live2d.py`
+- `src/main/services/live2d/emotion.ts`
+- `src/main/services/live2d/controller.ts`
 
 ---
 
-#### 任务 C4：VtuberExtension 整合
+#### 任务 C4：AI Service 统一封装
 **时间**：第4周（12小时）
 
 **任务描述**：
-整合 ASR/TTS/Live2D 为统一扩展。
+整合 S2S/ASR/TTS/Live2D 为统一的 AI 服务层。
 
 **具体工作**：
-1. 创建 VtuberExtension 类
-2. 订阅 MessageBus 事件
-3. 处理语音输入流程
-4. 处理语音输出流程
-5. 与 DesktopChannel 协作
+1. 定义 AI Service 接口
+2. 实现 Hybrid Mode 切换逻辑
+3. 统一错误处理
+4. 状态同步 (Thinking/Speaking)
 
 **代码位置**：
-- `nanobot/extensions/vtuber/__init__.py`
+- `src/main/services/ai/index.ts`
 
 ---
 
-### 成员 D：业务功能
+### 成员 D：业务功能 (Node.js)
 
-#### 任务 D1：应用启动工具
-**时间**：第1周（12小时）
+#### 任务 D1：桌面工具集
+**时间**：第1周（16小时）
 
 **任务描述**：
-实现 open_app 和 open_url 工具，带白名单安全策略。
+移植并实现 TS 版的桌面操作工具，包含白名单机制。
 
 **具体工作**：
-1. 创建 AppWhitelist 类
-2. 实现 open_app 工具
-3. 实现 open_url 工具
-4. 审计日志
-5. 配置文件
+1. 实现 Tool 接口
+2. 实现 `open_app` / `open_url`
+3. 实现 `AppWhitelist` (JSON 配置)
+4. 实现操作审计日志
 
 **代码位置**：
-- `nanobot/agent/tools/desktop.py`
-- `config/app_whitelist.json`
-
-**AI 提示词（示例参考）**：
-```
-请实现桌面应用启动工具：
-
-1. 创建 nanobot/agent/tools/desktop.py
-
-2. 实现 OpenAppTool：
-   @property
-   def name(self) -> str:
-       return "open_app"
-   
-   async def execute(self, app_name: str, args: list = None) -> str:
-       # 检查白名单
-       # 找到应用路径
-       # 启动应用
-
-3. 实现 AppWhitelist 类：
-   - 从 config/app_whitelist.json 加载
-   - 支持通配符路径
-   - 别名匹配
-
-4. 安全要求：
-   - 非白名单应用拒绝
-   - 操作记录日志
-
-请生成完整的 Python 代码和配置示例。
-```
+- `src/main/tools/desktop.ts`
+- `src/main/tools/whitelist.ts`
 
 ---
 
-#### 任务 D2：系统操作工具
-**时间**：第2周（12小时）
+#### 任务 D2：记忆系统
+**时间**：第2周（16小时）
 
 **任务描述**：
-实现截图、通知、系统信息等工具。
+实现基于 JSON/SQLite 的记忆存储与检索。
 
 **具体工作**：
-1. 截图工具（委托给 Electron）
-2. 通知工具
-3. 系统信息工具
-4. 工具注册
+1. 设计记忆数据结构 (Short/Long Term)
+2. 实现记忆写入 (Bypass 触发)
+3. 实现记忆检索 (Context 注入)
+4. 每日摘要任务
 
 **代码位置**：
-- `nanobot/agent/tools/system.py`
+- `src/main/memory/store.ts`
+- `src/main/memory/manager.ts`
 
 ---
 
-#### 任务 D3：Heartbeat 配置
+#### 任务 D3：Heartbeat 移植
 **时间**：第3周（8小时）
 
 **任务描述**：
-配置 nanobot Heartbeat 实现主动触发。
+移植 Heartbeat 逻辑到 Node.js，实现主动触发。
 
 **具体工作**：
-1. 编写 HEARTBEAT.md
-2. 配置触发规则
-3. 测试触发效果
+1. 移植 Cron 调度逻辑 (node-schedule)
+2. 移植规则匹配逻辑
+3. 实现主动消息推送
+4. 编写 HEARTBEAT.md 配置
 
 **代码位置**：
+- `src/main/agent/heartbeat.ts`
 - `workspace/HEARTBEAT.md`
 
 ---
@@ -540,16 +451,22 @@ Week 1   Week 2   Week 3   Week 4   Week 5   Week 6   Week 7   Week 8   Week 9  
 
 ### 代码仓库
 ```
-E:\Mural\
-├── desktop-companion/          # A 负责区域
-│   ├── electron/
-│   └── installer/
-│
-└── nanobot-main/
-    └── nanobot/
-        ├── channels/desktop/     # B 负责区域
-        ├── extensions/vtuber/    # C 负责区域
-        └── agent/tools/          # D 负责区域
+ai-desktop-companion/
+├── electron/             # A 负责区域 (UI/Renderer)
+│   └── src/renderer/
+├── src/                  # B/C/D 负责区域 (Main Process)
+│   ├── main/
+│   │   ├── agent/        # B (Core)
+│   │   ├── services/     # C (AI)
+│   │   ├── tools/        # D (Tools)
+│   │   ├── memory/       # D (Memory)
+│   │   └── config/       # B (Config)
+│   └── ipc/              # B (IPC)
+├── vendors/
+│   ├── nanobot-main/             # 参考代码 (Python)
+│   └── Open-LLM-VTuber/
+│       └── Open-LLM-VTuber-main/ # 参考代码 (Live2D)
+└── package.json
 ```
 
 ### 每日站会
@@ -580,7 +497,7 @@ main (稳定)
 ```
 1. 阅读任务卡片
 2. 复制 AI 提示词
-3. 发送给 AI（Claude/GPT-4/etc.）
+3. 发送给 AI
 4. AI 生成代码
 5. 验证代码（运行测试）
 6. 调整/修复

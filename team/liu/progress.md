@@ -1,50 +1,34 @@
 # 工作进度 - Liu
 
-> 角色：业务功能 (D) | 桌面工具 + 文档 + 测试
+> 角色：业务功能 (D) | 记忆系统 + 桌面工具 + 订阅
 
 ## 当前 Sprint：Sprint 1（第1-4周）
 
-### 2026-03-11
+### 2026-03-12 (架构重构)
 
 #### 完成事项
-- [x] 项目初始化
+- [x] 确认架构迁移至 Node.js
+- [x] 确认工具与记忆模块改用 TS 开发
 
 #### 进行中
-- 桌面工具需求整理 (0%)
+- D1: 桌面工具集 (0%)
 
 #### 明日计划
-- 整理 open_app 工具需求
-- 整理 open_url 工具需求
-- 学习 Python 基础（如需要）
-
-#### AI 上下文
-- 待生成
+- 学习 Node.js `child_process` 模块
+- 设计 TS 版 Tool 接口
+- 设计 AppWhitelist JSON 结构
 
 ---
 
 ## 任务清单
 
 ### Sprint 1 任务
-- [ ] D1: 桌面工具需求整理（第1周）
-  - open_app：打开应用程序
-  - open_url：打开网址
-  - open_file：打开文件
-- [ ] D2: open_app 工具实现（第2周）
-  - Windows 快捷方式扫描
-  - 应用启动
-- [ ] D3: open_url 工具实现（第3周）
-  - 默认浏览器打开
-- [ ] D4: 文档维护（第4周）
-  - 用户使用文档
-  - API 文档
-
-### Sprint 2 任务
-- [ ] D5: 订阅功能
-- [ ] D6: 埋点与分析
+- [ ] D1: 桌面工具集 (TS重写)
+- [ ] D2: 记忆系统 (JSON/SQLite)
 
 ### 相关文档
-- [开发计划](../plans/MODULE_D_BUSINESS.md)
-- [技术架构](../docs/02_ARCHITECTURE.md)
+- [开发计划](../../plans/MODULE_D_BUSINESS.md)
+- [技术架构](../../docs/02_ARCHITECTURE.md)
 
 ---
 

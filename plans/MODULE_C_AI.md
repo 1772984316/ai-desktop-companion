@@ -1,286 +1,143 @@
-# 模块 C：AI 能力
+# 模块 C：AI 服务实现 (Node.js)
 
-> 负责人：成员 C  
-> 技术栈：Python, 音频处理, Live2D
+> 负责人：成员 C
+> 技术栈：TypeScript, whisper-node, edge-tts, Live2D Logic
 
 ---
 
 ## 模块概述
 
-负责视听能力实现：
-- ASR（语音识别）
-- TTS（语音合成）
-- Live2D 动作映射
-- VtuberExtension 整合
+负责 Electron 主进程中的 AI 能力实现：
+- S2S Client (Doubao Realtime Protocol)
+- ASR Service (whisper-node)
+- VAD Service (@ricky0123/vad-node)
+- TTS Service (edge-tts)
+- Live2D 逻辑控制 (TS Port)
 
 ---
 
 ## Sprint 1 任务（第1-4周）
 
-### C1: ASR Provider 实现
+### C1: S2S 协议封装
 
-**时间**：第1周（16小时）
+**时间**：第1周（20小时）
 
 **任务清单**：
 
 ```
-- [ ] 创建 ASR Provider 接口
-- [ ] 实现 WhisperASRProvider
-- [ ] 音频格式处理
-- [ ] 错误处理
-- [ ] 性能优化
+- [ ] 实现 Doubao Realtime WebSocket 协议 (Handshake/Audio/Text)
+- [ ] 实现二进制帧封包与拆包 (Buffer操作)
+- [ ] 实现流式音频发送 (PCM 16k Chunking)
+- [ ] 实现流式音频接收与缓冲
 ```
 
 **文件结构**：
 
 ```
-nanobot/extensions/vtuber/
-├── __init__.py
-├── asr.py          # ASR Provider
-└── audio.py        # 音频工具
+src/main/services/
+├── doubao/
+│   ├── client.ts        # S2S 客户端
+│   ├── protocol.ts      # 协议定义
+│   └── types.ts         # 类型定义
+├── audio/
+│   ├── converter.ts     # 音频格式转换
 ```
 
-**代码骨架**：
+### C2: 音频管线与 VAD
 
-```python
-# nanobot/extensions/vtuber/asr.py
-
-from abc import ABC, abstractmethod
-import tempfile
-from pathlib import Path
-
-class ASRProvider(ABC):
-    @abstractmethod
-    async def transcribe(self, audio_data: bytes) -> str:
-        """语音转文字"""
-        pass
-
-class WhisperASRProvider(ASRProvider):
-    def __init__(self, model_size: str = "base", language: str = "zh"):
-        self.model_size = model_size
-        self.language = language
-        self._model = None
-    
-    def _load_model(self):
-        if self._model is None:
-            import whisper
-            self._model = whisper.load_model(self.model_size)
-        return self._model
-    
-    async def transcribe(self, audio_data: bytes) -> str:
-        import asyncio
-        
-        # 保存临时文件
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            f.write(audio_data)
-            temp_path = f.name
-        
-        try:
-            model = self._load_model()
-            
-            # 在线程池中运行
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(
-                None,
-                lambda: model.transcribe(temp_path, language=self.language)
-            )
-            
-            return result.get("text", "")
-        finally:
-            Path(temp_path).unlink(missing_ok=True)
-```
-
-**AI 提示词（示例参考）**：
-
-```
-请实现 ASR Provider 模块，用于语音识别。
-
-## 文件结构
-
-nanobot/extensions/vtuber/
-├── asr.py          # ASR Provider 类
-
-## 功能要求
-
-1. ASRProvider 抽象基类：
-   - transcribe(audio_data: bytes) -> str
-   - 异步接口
-
-2. WhisperASRProvider 实现：
-   - 使用 openai-whisper 库
-   - 支持配置模型大小：tiny/base/small/medium/large
-   - 支持配置语言（默认中文）
-   - 模型懒加载
-   - 在线程池中运行推理
-
-3. 音频格式：
-   - 输入：WAV 格式（16kHz, 16bit, mono）
-   - 如果需要转换，使用 pydub
-
-4. 错误处理：
-   - 模型加载失败
-   - 音频格式错误
-   - 识别失败
-
-## 使用示例
-
-provider = WhisperASRProvider(model_size="base", language="zh")
-with open("audio.wav", "rb") as f:
-    text = await provider.transcribe(f.read())
-print(text)  # "你好，世界"
-
-请生成完整代码。
-```
-
----
-
-### C2: TTS Provider 实现
-
-**时间**：第2周（12小时）
+**时间**：第2周（16小时）
 
 **任务清单**：
 
 ```
-- [ ] 创建 TTS Provider 接口
-- [ ] 实现 EdgeTTSProvider
-- [ ] 音频格式处理
-- [ ] 缓存机制
+- [ ] 集成 @ricky0123/vad-node
+- [ ] 实现流式音频检测
+- [ ] 调整 VAD 阈值与参数
 ```
 
----
+### C3: 兼容模式服务 (ASR/TTS)
 
-### C3: Live2D 动作映射
-
-**时间**：第3周（16小时）
+**时间**：第3周（12小时）
 
 **任务清单**：
 
 ```
-- [ ] 实现情绪识别
-- [ ] 定义情绪-动作映射
-- [ ] 生成 Live2D 指令
-- [ ] 可配置映射表
+- [ ] 集成 whisper-node (Local ASR)
+- [ ] 集成 edge-tts (Local TTS)
+- [ ] 实现模式切换逻辑 (S2S <-> Local)
 ```
 
-**文件结构**：
+### C4: Live2D 逻辑控制
 
-```
-nanobot/extensions/vtuber/
-├── emotion.py      # 情绪识别
-└── live2d.py       # Live2D 控制器
-```
-
----
-
-### C4: VtuberExtension 整合
-
-**时间**：第4周（12小时）
+**时间**：第4周（16小时）
 
 **任务清单**：
 
 ```
-- [ ] 创建 VtuberExtension 类
-- [ ] 订阅 MessageBus 事件
-- [ ] 处理语音输入流程
-- [ ] 处理语音输出流程
-- [ ] 与 DesktopChannel 协作
+- [ ] 移植 Open-LLM-VTuber 的 LipSync 算法 (TS 实现)
+- [ ] 实现 Audio -> Viseme 映射
+- [ ] 实现情绪关键词匹配
+- [ ] 生成 Live2D 动作指令
 ```
 
 ---
 
 ## Sprint 2 任务（第5-8周）
 
-### C5: 性能优化
+### C5: 性能与体验优化
 
 **时间**：第5-6周（16小时）
 
 ```
-- [ ] ASR 推理加速
-- [ ] TTS 缓存
-- [ ] 流式响应
-- [ ] 内存优化
+- [ ] ASR 并发控制
+- [ ] TTS 预加载机制
+- [ ] 优化 LipSync 延迟
 ```
 
-### C6: 音质优化
+### C8: 视觉感知 (Node.js)
 
-**时间**：第7-8周（12小时）
-
-```
-- [ ] 延迟优化
-- [ ] 音频处理优化
-- [ ] 错误恢复
-```
-
----
-
-## Sprint 3 任务（第9-10周）
-
-### C7: 内存对接
-
-**时间**：第9周（8小时）
+**时间**：第8周（16小时）
 
 ```
-- [ ] 与 MemoryStore 对接
-- [ ] 情绪状态持久化
+- [ ] 集成 screenshot-desktop
+- [ ] 封装 Vision LLM 调用接口
+- [ ] 实现截图压缩与上传
 ```
 
 ---
 
 ## 技术参考
 
-### Whisper 使用
+### Whisper Node 使用
 
-```python
-import whisper
+```typescript
+import { whisper } from 'whisper-node';
 
-model = whisper.load_model("base")
-result = model.transcribe("audio.wav", language="zh")
-print(result["text"])
+const transcript = await whisper(filePath, {
+  modelName: "base",
+  language: "zh"
+});
 ```
 
-### Edge-TTS 使用
+### Edge TTS (Node)
 
-```python
-import edge_tts
+```typescript
+import { EdgeTTS } from 'edge-tts';
 
-communicate = edge_tts.Communicate("你好", "zh-CN-XiaoxiaoNeural")
-await communicate.save("output.mp3")
+const tts = new EdgeTTS();
+await tts.ttsPromise("你好", "zh-CN-XiaoxiaoNeural");
 ```
 
-### 情绪识别
+### LipSync 算法 (TS)
 
-```python
-EMOTION_KEYWORDS = {
-    "happy": ["开心", "高兴", "好的", "谢谢"],
-    "sad": ["难过", "伤心", "抱歉"],
-    "thinking": ["让我想想", "嗯...", "思考一下"],
-    "greeting": ["你好", "早上好", "欢迎"],
-}
-
-def detect_emotion(text: str) -> str:
-    for emotion, keywords in EMOTION_KEYWORDS.items():
-        for kw in keywords:
-            if kw in text:
-                return emotion
-    return "neutral"
-```
-
-### Live2D 指令
-
-```json
-{
-  "type": "action",
-  "action": {
-    "type": "motion",
-    "name": "tap_body"
+```typescript
+// 计算 RMS 音量并映射到 MouthOpen
+function calculateMouthOpen(audioBuffer: Float32Array): number {
+  let sum = 0;
+  for (let i = 0; i < audioBuffer.length; i++) {
+    sum += audioBuffer[i] * audioBuffer[i];
   }
-}
-
-{
-  "type": "action",
-  "action": {
-    "type": "expression",
-    "name": "f01"
-  }
+  const rms = Math.sqrt(sum / audioBuffer.length);
+  return Math.min(1.0, rms * 5.0); // 放大系数
 }
 ```

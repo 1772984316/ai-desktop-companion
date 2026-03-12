@@ -1,13 +1,36 @@
-# Dependencies
+# Node.js
 node_modules/
-__pycache__/
-*.pyc
-.pyo
-.pyd
+dist/
+release/
+build/
+out/
+.npm/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime Data (UserData)
+workspace/
+resources/models/
+resources/python/
+config/local.json
+*.db
+*.sqlite
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # IDE
-.idea/
 .vscode/
+.idea/
 *.swp
 *.swo
 
@@ -15,22 +38,15 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Build
-dist/
-build/
-*.egg-info/
+# Vendors (Reference Only - Manual Clone)
+vendors/nanobot-main/
+vendors/Open-LLM-VTuber/
+vendors/**/*.zip
+vendors/**/*.tar.gz
 
-# Logs
-logs/
-*.log
+# Electron Builder
+dist-electron/
+release/
 
-# Environment
-.env
-.env.local
-venv/
-.venv/
-
-# Test
-.pytest_cache/
-.coverage
-htmlcov/
+# Testing
+coverage/

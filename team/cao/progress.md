@@ -1,48 +1,31 @@
 # 工作进度 - Cao
 
-> 角色：后端核心 (B) | nanobot + DesktopChannel + 打包
+> 角色：后端核心 (B) | Node.js Agent Core + Bypass + IPC
 
 ## 当前 Sprint：Sprint 1（第1-4周）
 
-### 2026-03-11
+### 2026-03-12 (架构重构)
 
 #### 完成事项
-- [x] 项目初始化
+- [x] 确认架构迁移至 Node.js
+- [x] 放弃 nanobot Python 代码，启动 TS 重写计划
 
 #### 进行中
-- nanobot 源码分析 (0%)
+- B1: Agent Core 基础框架 (0%)
 
 #### 明日计划
-- 分析 nanobot 核心模块
-- 设计 DesktopChannel 接口
-- 规划 WebSocket 消息协议
-
-#### AI 上下文
-- 待生成
+- 设计 Agent Loop 接口 (TS)
+- 搭建 Electron Main Process 开发环境
 
 ---
 
 ## 任务清单
 
 ### Sprint 1 任务
-- [ ] B1: nanobot 集成（第1周）
-  - 源码分析
-  - 依赖安装
-- [ ] B2: DesktopChannel 实现（第2周）
-  - 继承 BaseChannel
-  - WebSocket 服务端
-- [ ] B3: 消息协议设计（第3周）
-  - 消息格式定义
-  - 序列化/反序列化
-- [ ] B4: 打包配置（第4周）
-  - Python 环境嵌入
-  - electron-builder 配置
-
-### Sprint 2 任务
-- [ ] B5: VtuberExtension 整合
-- [ ] B6: 安装程序制作
+- [ ] B1: Agent Core 基础框架 (TS重写)
+- [ ] B2: IPC 通信层 (Main Process)
+- [ ] B3: Bypass Agent (旁路意图识别)
 
 ### 相关文档
-- [开发计划](../plans/MODULE_B_BACKEND.md)
-- [技术架构](../docs/02_ARCHITECTURE.md)
-- [nanobot 结构](../vendors/README.md)
+- [开发计划](../../plans/MODULE_B_BACKEND.md)
+- [技术架构](../../docs/02_ARCHITECTURE.md)

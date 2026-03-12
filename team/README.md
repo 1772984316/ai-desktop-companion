@@ -48,10 +48,10 @@ team/
 
 | 成员 | 角色 | 主要职责 | 技术要求 |
 |------|------|----------|----------|
-| **Cai** | AI 核心 (C) | ASR/TTS/LLM/情绪映射 | 高 |
-| **Cao** | 后端 (B) | nanobot集成/DesktopChannel | 中高 |
-| **Zhao** | 客户端 (A) | Electron/Live2D/前端 | 中高 |
-| **Liu** | 业务功能 (D) | 桌面工具/文档/测试 | 中 |
+| **Cai** | AI 核心 (C) | S2S协议/音频服务/VAD | Node.js/Buffer/Audio |
+| **Cao** | 后端 (B) | Agent Core/Bypass/IPC | Node.js/TS |
+| **Zhao** | 客户端 (A) | Electron/UI/Live2D | Electron/Pixi.js |
+| **Liu** | 业务功能 (D) | 记忆/工具/订阅 | TS/SQLite |
 
 ---
 

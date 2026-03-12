@@ -1,362 +1,161 @@
-# 模块 B：后端核心
+# 模块 B：Node.js 后端与服务编排
 
-> 负责人：成员 B  
-> 技术栈：Python, nanobot, WebSocket, 打包
+> 负责人：成员 B
+> 技术栈：TypeScript, Node.js (Electron Main), IPC
 
 ---
 
 ## 模块概述
 
-负责 nanobot 与桌面客户端的集成：
-- DesktopChannel 实现（WebSocket 服务端）
-- 消息协议设计
-- Python 环境打包
-- 安装程序制作
+负责 Electron 主进程中的后端逻辑与 AI 服务编排：
+- Agent Core (基于 TS 重写的轻量级 Loop)
+- IPC 通信管理
+- ASR/VAD/TTS 服务集成 (Node.js binding)
+- 记忆与会话管理 (Local JSON/SQLite)
 
 ---
 
 ## Sprint 1 任务（第1-4周）
 
-### B1: DesktopChannel 基础实现
+### B1: Agent Core 基础框架
 
-**时间**：第1周（16小时）
+**时间**：第1周（20小时）
 
 **任务清单**：
 
 ```
-- [ ] 分析 nanobot channels 结构
-- [ ] 创建 DesktopChannel 类
-- [ ] 实现 WebSocket 服务端
-- [ ] 客户端连接管理
-- [ ] 基础消息收发
-- [ ] 注册到 ChannelManager
+- [ ] 定义 Agent 核心接口 (Input/Output/State)
+- [ ] 实现基础 Agent Loop (接收 -> 思考 -> 行动)
+- [ ] 集成 OpenAI/Claude SDK
+- [ ] 实现 System Prompt 构建器
+- [ ] 实现基础 Memory Store (JSON 文件读写)
 ```
 
 **文件结构**：
 
 ```
-nanobot/
-├── channels/
-│   ├── desktop.py           # DesktopChannel 主类
-│   └── desktop/
-│       ├── __init__.py
-│       └── protocol.py       # 消息协议
+src/main/
+├── agent/
+│   ├── loop.ts          # 核心循环
+│   ├── context.ts       # 上下文构建
+│   └── types.ts         # 类型定义
+├── memory/
+│   └── store.ts         # 记忆存储
+└── services/
+    └── llm.ts           # LLM 客户端封装
 ```
 
-**代码骨架**：
-
-```python
-# nanobot/channels/desktop.py
-
-from nanobot.channels.base import BaseChannel
-from nanobot.bus.events import InboundMessage, OutboundMessage
-import websockets
-from websockets.server import serve
-
-class DesktopChannel(BaseChannel):
-    name = "desktop"
-    
-    def __init__(self, config: DesktopChannelConfig, bus: MessageBus):
-        super().__init__(config, bus)
-        self.port = config.port
-        self._server = None
-        self._clients: dict[str, websockets.WebSocketServerProtocol] = {}
-    
-    async def start(self) -> None:
-        """启动 WebSocket 服务器"""
-        self._server = await serve(
-            self._handle_client,
-            "localhost",
-            self.port
-        )
-    
-    async def stop(self) -> None:
-        """停止服务"""
-        if self._server:
-            self._server.close()
-            await self._server.wait_closed()
-    
-    async def send(self, msg: OutboundMessage) -> None:
-        """发送消息给客户端"""
-        # TODO: 实现
-    
-    async def _handle_client(self, ws):
-        """处理客户端连接"""
-        # TODO: 实现
-```
-
-**验收标准**：
-
-```gherkin
-Feature: DesktopChannel Basic
-
-  Scenario: Start server
-    Given DesktopChannel is configured
-    When start() is called
-    Then WebSocket server should listen on port 18790
-
-  Scenario: Accept connection
-    Given server is running
-    When client connects to ws://localhost:18790
-    Then connection should be accepted
-    And client should be registered
-
-  Scenario: Receive message
-    Given client is connected
-    When client sends {"type":"text","content":"hello"}
-    Then InboundMessage should be published to bus
-
-  Scenario: Send message
-    Given client is connected
-    When OutboundMessage is published to bus
-    Then message should be sent to client
-```
-
-**AI 提示词（示例参考）**：
-
-```
-请在 nanobot 中实现 DesktopChannel，用于与 Electron 客户端通信。
-
-## 背景
-
-nanobot 是一个 AI Agent 框架，已有多个 channel 实现：
-- TelegramChannel (nanobot/channels/telegram.py)
-- DiscordChannel (nanobot/channels/discord.py)
-
-## 需要创建的文件
-
-1. nanobot/channels/desktop.py - DesktopChannel 主类
-2. nanobot/channels/desktop/__init__.py
-3. nanobot/channels/desktop/protocol.py - 消息协议
-
-## DesktopChannel 设计
-
-class DesktopChannel(BaseChannel):
-    name = "desktop"
-    
-    async def start(self):
-        # 启动 WebSocket 服务器（端口 18790）
-    
-    async def stop(self):
-        # 停止服务
-    
-    async def send(self, msg: OutboundMessage):
-        # 发送消息给特定客户端
-    
-    async def _handle_client(self, ws):
-        # 处理客户端连接
-        # 接收消息 -> _handle_message() -> 发布到 MessageBus
-    
-    async def _broadcast(self, msg):
-        # 广播消息给所有客户端
-
-## 配置
-
-在 nanobot/config/schema.py 添加：
-
-@dataclass
-class DesktopChannelConfig:
-    enabled: bool = False
-    port: int = 18790
-    host: str = "localhost"
-    allow_from: list[str] = field(default_factory=lambda: ["*"])
-
-## 消息协议
-
-客户端 -> 服务端：
-{
-  "type": "text|voice|screenshot|system",
-  "content": "...",
-  "metadata": {...}
-}
-
-服务端 -> 客户端：
-{
-  "type": "message|progress|action|audio|error",
-  "content": "...",
-  "metadata": {...}
-}
-
-## 参考
-
-请参考 nanobot/channels/telegram.py 的实现模式。
-
-请生成完整代码。
-```
-
----
-
-### B2: 消息协议完善
+### B2: IPC 通信层
 
 **时间**：第2周（12小时）
 
-```
-- [ ] 完善消息类型定义
-- [ ] 实现消息序列化
-- [ ] 实现消息解析
-- [ ] 流式消息支持
-- [ ] 错误消息处理
-```
-
----
-
-### B3: Python 环境准备
-
-**时间**：第3周（12小时）
+**任务清单**：
 
 ```
-- [ ] 下载 Python embed 包
-- [ ] 安装 nanobot 依赖
-- [ ] 精简不必要的包
-- [ ] 创建依赖清单
-- [ ] 编写安装脚本
+- [ ] 设计 IPC 消息协议 (Types)
+- [ ] 实现 Main Process IPC Handler
+- [ ] 实现流式数据传输 (用于 TTS/ASR 音频流)
+- [ ] 错误处理与状态同步
 ```
 
----
+### B3: Node.js AI 服务集成 (Hybrid Mode)
 
-### B4: nanobot 配置扩展
+**时间**：第3周（20小时）
 
-**时间**：第4周（8小时）
+**任务清单**：
 
 ```
-- [ ] 添加 DesktopChannelConfig
-- [ ] 添加 VtuberExtensionConfig
-- [ ] 更新默认配置模板
-- [ ] 配置验证
+- [ ] 集成 Doubao Realtime API (S2S WebSocket 客户端)
+- [ ] 实现 BypassAgent (旁路意图识别)
+- [ ] 集成 whisper-node (兼容模式 ASR)
+- [ ] 集成 @ricky0123/vad-node (通用 VAD)
+- [ ] 集成 edge-tts (兼容模式 TTS)
+```
+
+**关键实现 (DoubaoClient)**：
+
+```typescript
+// src/main/services/doubao.ts
+class DoubaoRealtimeClient extends EventEmitter {
+  connect() {
+    this.ws = new WebSocket('wss://openspeech.bytedance.com/...');
+    this.ws.on('message', (data) => {
+      // 解析二进制帧 -> 触发 'audio' 或 'text' 事件
+      // 文本事件 -> 发送给 BypassAgent
+    });
+  }
+}
+```
+
+### B4: 服务编排与调试
+**时间**：第4周（12小时）
+
+```
+- [ ] 联调：S2S Mode (Renderer -> Doubao -> Renderer)
+- [ ] 联调：Bypass Tool Execution (Doubao -> BypassAgent -> Tool)
+- [ ] 性能基准测试 (Benchmark)
+  - [ ] 采集 S2S 首字延迟 (P99 < 1s)
+  - [ ] 采集 内存/CPU 占用曲线
+  - [ ] 采集 启动时间 (Cold Start)
+- [ ] 日志系统实现 (Structured Logger)
 ```
 
 ---
 
 ## Sprint 2 任务（第5-8周）
 
-### B5: 安装程序框架
+### B5: 复杂工具链实现
 
 **时间**：第5-6周（20小时）
 
 ```
-- [ ] 配置 electron-builder
-- [ ] 整合 Python 资源
-- [ ] 创建启动脚本
-- [ ] 测试打包产物
+- [ ] 实现 ToolRegistry (装饰器模式)
+- [ ] 移植 Desktop Tools (open_app, screenshot 等)
+- [ ] 实现安全白名单机制
 ```
 
----
-
-### B6: Inno Setup 脚本
+### B6: 长期记忆增强
 
 **时间**：第7周（16小时）
 
 ```
-- [ ] 编写 Inno Setup 脚本
-- [ ] 配置安装向导
-- [ ] 创建卸载程序
-- [ ] 首次运行配置
-```
-
----
-
-### B7: 文档编写
-
-**时间**：第8周（12小时）
-
-```
-- [ ] 安装文档
-- [ ] 配置文档
-- [ ] 故障排除指南
-```
-
----
-
-## Sprint 3 任务（第9-10周）
-
-### B8: 最终打包
-
-**时间**：第9-10周（16小时）
-
-```
-- [ ] 完整打包测试
-- [ ] 体积优化
-- [ ] 签名（可选）
-- [ ] 发布准备
+- [ ] 引入 Vector Store (可选，如 local vector db)
+- [ ] 实现记忆压缩与归档逻辑
+- [ ] 实现用户偏好学习
 ```
 
 ---
 
 ## 技术参考
 
-### nanobot Channel 基类
+### Agent Loop (TS 示例)
 
-```python
-class BaseChannel(ABC):
-    name: str
+```typescript
+export class AgentLoop {
+  async run(input: AgentInput): Promise<void> {
+    // 1. Build Context
+    const context = await this.contextBuilder.build(input);
     
-    @abstractmethod
-    async def start(self) -> None: ...
+    // 2. LLM Inference
+    const response = await this.llm.chat(context);
     
-    @abstractmethod
-    async def stop(self) -> None: ...
-    
-    @abstractmethod
-    async def send(self, msg: OutboundMessage) -> None: ...
-    
-    async def _handle_message(
-        self, 
-        sender_id: str,
-        chat_id: str,
-        content: str,
-        media: list[str] | None = None,
-        metadata: dict | None = None,
-    ) -> None:
-        msg = InboundMessage(
-            channel=self.name,
-            sender_id=sender_id,
-            chat_id=chat_id,
-            content=content,
-            media=media or [],
-            metadata=metadata or {},
-        )
-        await self.bus.publish_inbound(msg)
-```
-
-### WebSocket 服务器
-
-```python
-import websockets
-from websockets.server import serve
-
-async def start_server():
-    async with serve(handle_client, "localhost", 18790):
-        await asyncio.Future()  # 永久运行
-```
-
-### Python 嵌入式包
-
-```javascript
-// scripts/build-python.js
-
-const PYTHON_VERSION = '3.11.9';
-const PYTHON_EMBED_URL = `https://www.python.org/ftp/python/${PYTHON_VERSION}/python-${PYTHON_VERSION}-embed-amd64.zip`;
-
-async function downloadPythonEmbed() {
-  // 下载并解压到 resources/python/
-}
-```
-
-### electron-builder 配置
-
-```json
-{
-  "build": {
-    "extraResources": [
-      {
-        "from": "resources/python",
-        "to": "python"
-      },
-      {
-        "from": "resources/nanobot",
-        "to": "nanobot"
-      }
-    ]
+    // 3. Tool Execution or Reply
+    if (response.tool_calls) {
+      // ... execute tools
+    } else {
+      // ... send reply via IPC
+      this.ipc.send('agent:response', response.content);
+    }
   }
 }
+```
+
+### IPC Handler
+
+```typescript
+ipcMain.handle('audio:stream', async (event, buffer) => {
+  // Process audio buffer with VAD/ASR
+  const text = await this.audioService.transcribe(buffer);
+  return text;
+});
 ```
