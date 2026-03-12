@@ -112,7 +112,7 @@ Feature: DesktopChannel Basic
     Then message should be sent to client
 ```
 
-**AI 提示词**：
+**AI 提示词（示例参考）**：
 
 ```
 请在 nanobot 中实现 DesktopChannel，用于与 Electron 客户端通信。

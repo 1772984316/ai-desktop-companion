@@ -90,7 +90,7 @@ class WhisperASRProvider(ASRProvider):
             Path(temp_path).unlink(missing_ok=True)
 ```
 
-**AI 提示词**：
+**AI 提示词（示例参考）**：
 
 ```
 请实现 ASR Provider 模块，用于语音识别。

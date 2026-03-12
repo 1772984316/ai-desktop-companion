@@ -41,6 +41,7 @@
 │                         外部服务                                 │
 ├─────────────────────────────────────────────────────────────────┤
 │  LLM API (OpenAI/Claude)  │  ASR (Whisper)  │  TTS (Edge)       │
+│  Vision API (可选)        │  VAD (可选)     │                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -81,6 +82,7 @@
 | DesktopChannel | `BaseChannel` | 新增 | Electron 客户端通信 |
 | DesktopTools | `Tool` | 新增 | 桌面操作工具 |
 | VtuberExtension | - | 新增 | ASR/TTS/Live2D 封装 |
+| ScreenPerception | - | 新增 | 截图解析 + 视觉模型接入 |
 
 ---
 
@@ -119,7 +121,11 @@ class DesktopChannel(BaseChannel):
   "content": "用户消息",
   "audio": "base64...",
   "image": "base64...",
-  "metadata": {}
+  "metadata": {
+    "conversation_id": "uuid",
+    "request_id": "uuid",
+    "timestamp": 1710000000
+  }
 }
 ```
 
@@ -131,9 +137,18 @@ class DesktopChannel(BaseChannel):
   "content": "AI响应",
   "audio": "base64...",
   "action": {"type": "motion", "name": "wave"},
-  "metadata": {"is_final": true}
+  "metadata": {
+    "request_id": "uuid",
+    "is_final": true,
+    "sequence": 3
+  }
 }
 ```
+
+#### 协议一致性约束（补充）
+- **request_id 必填**：用于流式响应拼接与断线恢复。
+- **sequence 递增**：保证流式消息顺序可重建。
+- **conversation_id 贯通**：打通记忆与埋点的链路归因。
 
 ---
 
@@ -186,9 +201,11 @@ class TTSProvider(ABC):
 
 | 工具 | 功能 | 安全策略 |
 |------|------|----------|
-| `open_app` | 打开应用 | 白名单 |
-| `open_url` | 打开网址 | 域名白名单 |
-| `take_screenshot` | 截图 | 需用户触发 |
+| `open_app` | 打开应用 | 白名单 + 二次确认（支持会话记住） |
+| `open_url` | 打开网址 | 域名白名单 + 二次确认（支持会话记住） |
+| `open_file` | 打开文件 | 白名单路径 + 二次确认（支持会话记住） |
+| `open_folder` | 打开文件夹 | 白名单路径 + 二次确认（支持会话记住） |
+| `take_screenshot` | 截图 | 仅用户主动触发 |
 | `send_notification` | 发送通知 | 无限制 |
 | `get_system_info` | 获取系统信息 | 只读 |
 
@@ -200,9 +217,14 @@ class TTSProvider(ABC):
     {"name": "Spotify", "path": "C:/Program Files/Spotify/Spotify.exe"}
   ],
   "domains": ["github.com", "google.com"],
+  "paths": ["C:/Users/*/Documents", "C:/Users/*/Downloads"],
   "default_action": "reject"
 }
 ```
+
+### 5.3 交互与审计（补充）
+- **二次确认**：`open_app` / `open_url` / `open_file` / `open_folder` 默认需用户确认，可勾选“本次会话记住”。
+- **审计日志**：所有 Do 操作记录 `time/user/action/target/result`，支持一键清空。
 
 ---
 
@@ -280,6 +302,8 @@ Electron 显示
 }
 ```
 
+> 说明：`tools.restrictToWorkspace` 建议保持为 `true`，用于限制工具访问范围，避免越权文件/命令操作。
+
 ---
 
 ## 8. 部署结构
@@ -316,7 +340,7 @@ DesktopCompanion-Setup.exe
 
 | 指标 | 目标 | 说明 |
 |------|------|------|
-| 冷启动 | < 10s | 从点击到可用 |
+| 冷启动 | < 8s | 从点击到可用 |
 | 常驻内存 | < 800MB | 稳定运行时 |
 | 文本首字 | < 1.5s | 从发送到首token |
 | 语音端到端 | < 3s | 从说完到开始播放 |
