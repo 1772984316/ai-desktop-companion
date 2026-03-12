@@ -1,36 +1,40 @@
-# Dependencies
+# ── Node.js ──────────────────────────────────────────
 node_modules/
-__pycache__/
-*.pyc
-.pyo
-.pyd
+package-lock.json
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Build
+# ── TypeScript 构建产物 ───────────────────────────────
 dist/
 build/
+*.js.map
+*.d.ts
+
+# ── Python ────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 *.egg-info/
-
-# Logs
-logs/
-*.log
-
-# Environment
-.env
-.env.local
-venv/
-.venv/
-
-# Test
 .pytest_cache/
 .coverage
 htmlcov/
+venv/
+.venv/
+
+# ── 环境变量 / 密钥（切勿上传）────────────────────────
+.env
+.env.*
+config.json
+
+# ── 日志 ─────────────────────────────────────────────
+logs/
+*.log
+
+# ── IDE ───────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── OS ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
