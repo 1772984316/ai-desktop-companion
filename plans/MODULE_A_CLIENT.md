@@ -81,7 +81,7 @@ Feature: Electron Window Management
     Then mouse clicks should pass through to apps below
 ```
 
-**AI 提示词**：
+**AI 提示词（示例参考）**：
 
 ```
 请帮我创建一个 Electron 桌面应用项目，用于 AI 虚拟桌宠。
@@ -156,6 +156,7 @@ desktop-companion/
 - [ ] 实现连接状态管理
 - [ ] 实现离线消息队列
 - [ ] 添加类型定义
+- [ ] 与后端协议冻结（Sprint 1 末）
 ```
 
 **文件结构**：
@@ -169,7 +170,7 @@ renderer/
 │   └── messages.ts      # 消息类型定义
 ```
 
-**消息协议**：
+**消息协议**（需与后端保持一致）：
 
 ```typescript
 // 发送消息类型
@@ -220,7 +221,7 @@ Feature: WebSocket Communication
     And max retry interval should be 30s
 ```
 
-**AI 提示词**：
+**AI 提示词（示例参考）**：
 
 ```
 请实现 Electron 与 nanobot 后端的 WebSocket 通信模块。

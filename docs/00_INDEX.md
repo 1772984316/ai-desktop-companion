@@ -54,10 +54,10 @@ Electron 客户端  ←WebSocket→  nanobot 主服务  ←→  ASR/TTS/Live2D
 
 | 阶段 | 周数 | 目标 |
 |------|------|------|
-| Sprint 1 | 1-3周 | 基础架构可用 |
-| Sprint 2 | 4-6周 | 功能完善 |
-| Sprint 3 | 7-9周 | 商业化闭环 |
-| Sprint 4 | 10-12周 | 打包发布 |
+| Sprint 1 | 1-4周 | 基础架构可用 |
+| Sprint 2 | 5-8周 | 功能完善 |
+| Sprint 3 | 9-10周 | 商业化闭环 |
+| Sprint 4 | 11-12周 | 打包发布 |
 
 ---
 

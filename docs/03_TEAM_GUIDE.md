@@ -1,6 +1,8 @@
 # 团队分工指南
 
 > 4人团队 · 12周开发周期 · AI Coding
+>
+> 里程碑口径以 `plans/INDEX.md` 为准。
 
 ---
 
@@ -48,7 +50,7 @@ Week 1   Week 2   Week 3   Week 4   Week 5   Week 6   Week 7   Week 8   Week 9  
 - [ ] 置顶/穿透可切换
 - [ ] 重启后位置恢复
 
-**AI 提示词**：
+**AI 提示词（示例参考）**：
 ```
 请帮我创建一个 Electron 桌面应用项目：
 
@@ -101,7 +103,7 @@ Week 1   Week 2   Week 3   Week 4   Week 5   Week 6   Week 7   Week 8   Week 9  
 - [ ] 断线可自动重连
 - [ ] 离线消息可缓存
 
-**AI 提示词**：
+**AI 提示词（示例参考）**：
 ```
 请帮我实现 Electron 与 nanobot 的 WebSocket 通信模块：
 
@@ -194,7 +196,7 @@ Week 1   Week 2   Week 3   Week 4   Week 5   Week 6   Week 7   Week 8   Week 9  
 - [ ] 客户端可连接
 - [ ] 消息双向收发
 
-**AI 提示词**：
+**AI 提示词（示例参考）**：
 ```
 请在 nanobot 中实现 DesktopChannel：
 
@@ -313,7 +315,7 @@ Week 1   Week 2   Week 3   Week 4   Week 5   Week 6   Week 7   Week 8   Week 9  
 **代码位置**：
 - `nanobot/extensions/vtuber/asr.py`
 
-**AI 提示词**：
+**AI 提示词（示例参考）**：
 ```
 请实现 ASR Provider：
 
@@ -411,7 +413,7 @@ Week 1   Week 2   Week 3   Week 4   Week 5   Week 6   Week 7   Week 8   Week 9  
 - `nanobot/agent/tools/desktop.py`
 - `config/app_whitelist.json`
 
-**AI 提示词**：
+**AI 提示词（示例参考）**：
 ```
 请实现桌面应用启动工具：
 
@@ -585,7 +587,7 @@ main (稳定)
 7. 提交 PR
 ```
 
-### AI 提示词模板
+### AI 提示词模板（示例参考）
 ```
 我正在开发 [项目名称]，需要实现 [任务名称]。
 

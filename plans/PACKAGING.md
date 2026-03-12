@@ -135,7 +135,7 @@ SolidCompression=yes
 [Files]
 Source: "electron\release\win-unpacked\*"; DestDir: "{app}"; Flags: recursesubdirs
 Source: "resources\python\*"; DestDir: "{app}\resources\python"; Flags: recursesubdirs
-Source: "resources\nanobot\*"; DestDir: "{app}\resources\nanobot"; Flags: recursesubdirs
+Source: "resources\nanobot-main\*"; DestDir: "{app}\resources\nanobot"; Flags: recursesubdirs
 Source: "resources\config\*"; DestDir: "{app}\resources\config"; Flags: recursesubdirs
 Source: "launcher\launch.bat"; DestDir: "{app}"
 
