@@ -1,0 +1,45 @@
+# 工作目录临时文件
+.worktrees/
+.assets
+nano.*.save
+botpy.log
+
+# 环境变量 / 密钥（切勿上传）
+.env
+.env.*
+config.json
+
+# Python 编译缓存
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pywz
+*.pyzz
+__pycache__/
+.pytest_cache/
+
+# 构建产物
+dist/
+build/
+*.egg-info/
+*.egg
+
+# 文档（原版有独立文档站）
+docs/
+
+# Python 虚拟环境
+.venv/
+venv/
+poetry.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
