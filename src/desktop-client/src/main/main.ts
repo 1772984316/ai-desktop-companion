@@ -17,6 +17,7 @@ import { registerFeishuAutoCreateIpc } from './feishu-auto-create';
 let mainWindow: BrowserWindow | null = null;
 let bridge:     NanobotBridge  | null = null;
 let nanobotProc: NanobotProcess | null = null;
+let ipcRegistered = false;
 
 // ── 创建主窗口 ─────────────────────────────────────────────────────────
 
@@ -40,8 +41,9 @@ function createWindow(): void {
   mainWindow.loadFile(path.join(__dirname, '../renderer/chat.html'));
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow!.show();
-    bootNanobot(mainWindow!);
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.show();
+    bootNanobot(mainWindow);
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -51,19 +53,26 @@ function createWindow(): void {
 
   mainWindow.on('closed', () => { mainWindow = null; });
 
-  // 注册飞书配置 IPC 处理器
-  registerFeishuSetupIpc(mainWindow);
-  // 注册飞书一键创建 IPC 处理器
-  registerFeishuAutoCreateIpc(mainWindow);
+  // 只注册一次全局 IPC 监听，避免重复注册
+  if (!ipcRegistered) {
+    ipcRegistered = true;
 
-  // 「设置飞书」菜单/按钮点击 → 打开配置弹窗
-  ipcMain.on('feishu:open-setup', () => openFeishuSetupWindow());
+    // 注册飞书配置 IPC 处理器
+    registerFeishuSetupIpc(mainWindow);
+    // 注册飞书一键创建 IPC 处理器
+    registerFeishuAutoCreateIpc(mainWindow);
 
-  // 配置保存后重启 nanobot gateway
-  ipcMain.on('nanobot:restart', () => {
-    console.log('[main] 收到重启请求，重新启动 nanobot gateway...');
-    bootNanobot(mainWindow!);
-  });
+    // 「设置飞书」菜单/按钮点击 → 打开配置弹窗
+    ipcMain.on('feishu:open-setup', () => openFeishuSetupWindow());
+
+    // 配置保存后重启 nanobot gateway
+    ipcMain.on('nanobot:restart', () => {
+      console.log('[main] 收到重启请求，重新启动 nanobot gateway...');
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        bootNanobot(mainWindow);
+      }
+    });
+  }
 }
 
 // ── 飞书配置弹窗 ───────────────────────────────────────────────────────
@@ -97,6 +106,10 @@ function openFeishuSetupWindow(): void {
 //  2. 端口就绪后 NanobotBridge 建立 WebSocket 连接
 
 async function bootNanobot(win: BrowserWindow): Promise<void> {
+  if (win.isDestroyed()) {
+    console.warn('[main] 跳过 nanobot 启动：窗口已销毁');
+    return;
+  }
   // 如果已有进程实例先清理
   nanobotProc?.kill();
 
@@ -107,6 +120,10 @@ async function bootNanobot(win: BrowserWindow): Promise<void> {
     await nanobotProc.start();
   } catch (err) {
     console.error('[main] nanobot 启动失败:', err);
+    win.webContents.send('nanobot:proc-status', {
+      phase: 'error',
+      message: 'nanobot 启动失败，请检查环境或配置',
+    });
     return;
   }
 

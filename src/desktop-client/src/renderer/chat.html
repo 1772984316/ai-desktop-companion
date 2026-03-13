@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- CSP：只允许本地资源，禁止外部网络 -->
+  <!-- CSP：Electron 桌面应用，安全靠 contextIsolation+nodeIntegration:false -->
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'" />
   <title>nanobot 助手</title>
@@ -249,39 +249,85 @@
 (function () {
   'use strict';
 
-  const messagesEl = document.getElementById('messages');
-  const inputEl    = document.getElementById('input');
-  const sendBtn    = document.getElementById('send-btn');
-  const statusDot  = document.getElementById('status-dot');
-  const statusLbl  = document.getElementById('status-label');
+  var messagesEl = document.getElementById('messages');
+  var inputEl    = document.getElementById('input');
+  var sendBtn    = document.getElementById('send-btn');
+  var statusDot  = document.getElementById('status-dot');
+  var statusLbl  = document.getElementById('status-label');
+  var bootBar    = document.getElementById('boot-bar');
 
-  let isConnected  = false;
-  let isWaiting    = false;
-  let streamBubble = null;
-  const bootBar    = document.getElementById('boot-bar');
+  var isConnected  = false;
+  var isWaiting    = false;
+  var streamBubble = null;
+
+  // ---- 工具 ----
+
+  function scrollToBottom() {
+    if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function appendSystem(text) {
+    if (!messagesEl) return;
+    var row = document.createElement('div');
+    row.className = 'msg-row system';
+    var bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    messagesEl.appendChild(row);
+    scrollToBottom();
+  }
+
+  function appendMessage(role, content, streaming) {
+    if (!messagesEl) return null;
+    var row = document.createElement('div');
+    row.className = 'msg-row ' + role;
+    var avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = role === 'user' ? '🧑' : '🤖';
+    var bubble = document.createElement('div');
+    bubble.className = 'bubble' + (streaming ? ' streaming' : '');
+    bubble.textContent = content;
+    row.appendChild(avatar);
+    row.appendChild(bubble);
+    messagesEl.appendChild(row);
+    scrollToBottom();
+    return bubble;
+  }
 
   // ---- 状态管理 ----
 
+  function updateInputState() {
+    if (!inputEl || !sendBtn) return;
+    var enabled = isConnected && !isWaiting;
+    inputEl.disabled = !enabled;
+    sendBtn.disabled  = !enabled;
+    if (enabled) inputEl.focus();
+  }
+
   function setConnected(val) {
     isConnected = val;
-    if (val) {
-      statusDot.className = 'online';
-      statusLbl.textContent = '已连接';
-      bootBar.classList.add('hidden');
-    } else {
-      statusDot.className = 'offline';
-      statusLbl.textContent = '未连接';
+    if (statusDot && statusLbl && bootBar) {
+      if (val) {
+        statusDot.className = 'online';
+        statusLbl.textContent = '已连接';
+        bootBar.classList.add('hidden');
+      } else {
+        statusDot.className = 'offline';
+        statusLbl.textContent = '未连接';
+      }
     }
     updateInputState();
   }
 
   function setProcPhase(phase, message) {
+    if (!statusDot || !statusLbl || !bootBar) return;
     if (phase === 'starting') {
       statusDot.className = 'starting';
       statusLbl.textContent = message || '正在启动…';
       bootBar.classList.remove('hidden');
     } else if (phase === 'ready') {
-      statusDot.className = 'offline';   // ready but ws not yet open
+      statusDot.className = 'offline';
       statusLbl.textContent = '端口就绪，连接中…';
       bootBar.classList.add('hidden');
     } else if (phase === 'error') {
@@ -300,142 +346,92 @@
     updateInputState();
   }
 
-  function updateInputState() {
-    const enabled = isConnected && !isWaiting;
-    inputEl.disabled = !enabled;
-    sendBtn.disabled  = !enabled;
-    if (enabled) inputEl.focus();
-  }
+  // ---- nanobot API 接入（含防御性判空）----
 
-  // ---- 渲染消息 ----
+  var nanobotAPI = window.nanobotAPI;
+  var feishuAPI  = window.feishuAPI;
 
-  function appendMessage(role, content, streaming = false) {
-    const row = document.createElement('div');
-    row.className = `msg-row ${role}`;
+  if (!nanobotAPI) {
+    appendSystem('⚠️ nanobot API 未就绪，请重启应用或检查 preload 配置');
+  } else {
+    nanobotAPI.onProcStatus(function (s) {
+      setProcPhase(s.phase, s.message);
+    });
 
-    const avatar = document.createElement('div');
-    avatar.className = 'avatar';
-    avatar.textContent = role === 'user' ? '🧑' : '🤖';
+    nanobotAPI.onStatus(function (s) {
+      setConnected(s.connected);
+      if (s.connected) {
+        appendSystem('✅ 已连接到 nanobot');
+      } else {
+        appendSystem('⚠️ 与 nanobot 断开连接，正在重连…');
+        if (streamBubble) {
+          streamBubble.classList.remove('streaming');
+          streamBubble.textContent += ' [连接中断]';
+          streamBubble = null;
+          setWaiting(false);
+        }
+      }
+    });
 
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble' + (streaming ? ' streaming' : '');
-    bubble.textContent = content;
-
-    row.appendChild(avatar);
-    row.appendChild(bubble);
-    messagesEl.appendChild(row);
-    scrollToBottom();
-    return bubble;
-  }
-
-  function appendSystem(text) {
-    const row = document.createElement('div');
-    row.className = 'msg-row system';
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.textContent = text;
-    row.appendChild(bubble);
-    messagesEl.appendChild(row);
-    scrollToBottom();
-  }
-
-  function scrollToBottom() {
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
-
-  // ---- nanobot API 回调 ----
-
-  // 子进程状态（starting / ready / error / stopped）
-  window.nanobotAPI.onProcStatus(({ phase, message }) => {
-    setProcPhase(phase, message);
-  });
-
-  window.nanobotAPI.onStatus(({ connected }) => {
-    setConnected(connected);
-    if (connected) {
-      appendSystem('✅ 已连接到 nanobot');
-    } else {
-      appendSystem('⚠️ 与 nanobot 断开连接，正在重连…');
-      // 如果有流式消息正在进行，标记为中断
-      if (streamBubble) {
-        streamBubble.classList.remove('streaming');
-        streamBubble.textContent += ' [连接中断]';
-        streamBubble = null;
+    nanobotAPI.onMessage(function (msg) {
+      if (msg.type === 'error') {
+        if (streamBubble) {
+          streamBubble.classList.remove('streaming');
+          streamBubble = null;
+        }
+        appendSystem(msg.content || '发生未知错误');
+        setWaiting(false);
+        return;
+      }
+      if (msg.partial) {
+        if (!streamBubble) streamBubble = appendMessage('assistant', '', true);
+        if (streamBubble) streamBubble.textContent += msg.content;
+        scrollToBottom();
+      } else {
+        if (streamBubble) {
+          streamBubble.textContent = msg.content;
+          streamBubble.classList.remove('streaming');
+          streamBubble = null;
+        } else {
+          appendMessage('assistant', msg.content);
+        }
         setWaiting(false);
       }
-    }
-  });
-
-  window.nanobotAPI.onMessage((msg) => {
-    if (msg.type === 'error') {
-      // 服务端错误
-      if (streamBubble) {
-        streamBubble.classList.remove('streaming');
-        streamBubble = null;
-      }
-      appendSystem(msg.content || '发生未知错误');
-      setWaiting(false);
-      return;
-    }
-
-    if (msg.partial) {
-      // 流式中间块：追加内容
-      if (!streamBubble) {
-        streamBubble = appendMessage('assistant', '', true);
-      }
-      streamBubble.textContent += msg.content;
-      scrollToBottom();
-    } else {
-      // 最终回复
-      if (streamBubble) {
-        // 流式结束：用完整内容替换并去掉光标
-        streamBubble.textContent = msg.content;
-        streamBubble.classList.remove('streaming');
-        streamBubble = null;
-      } else {
-        // 非流式单次回复
-        appendMessage('assistant', msg.content);
-      }
-      setWaiting(false);
-    }
-  });
+    });
+  }
 
   // ---- 发送逻辑 ----
 
   function sendMessage() {
-    const text = inputEl.value.trim();
+    if (!inputEl || !nanobotAPI) return;
+    var text = inputEl.value.trim();
     if (!text || !isConnected || isWaiting) return;
-
     appendMessage('user', text);
     inputEl.value = '';
     inputEl.style.height = 'auto';
-
     setWaiting(true);
-    window.nanobotAPI.send(text);
+    nanobotAPI.send(text);
   }
 
-  sendBtn.addEventListener('click', sendMessage);
+  if (sendBtn) sendBtn.addEventListener('click', sendMessage);
 
-  inputEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  });
-
-  // 自动高度
-  inputEl.addEventListener('input', () => {
-    inputEl.style.height = 'auto';
-    inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
-  });
-
-  // ---- 飞书配置弹窗入口 ----
-  const feishuBtn = document.getElementById('btn-feishu-setup');
-  if (feishuBtn) {
-    feishuBtn.addEventListener('click', () => {
-      window.feishuAPI.openSetup();
+  if (inputEl) {
+    inputEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+    inputEl.addEventListener('input', function () {
+      inputEl.style.height = 'auto';
+      inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
     });
   }
+
+  // ---- 飞书配置弹窗 ----
+
+  var feishuBtn = document.getElementById('btn-feishu-setup');
+  if (feishuBtn && feishuAPI) {
+    feishuBtn.addEventListener('click', function () { feishuAPI.openSetup(); });
+  }
+
 })();
 </script>
 </body>
