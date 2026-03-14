@@ -4,45 +4,52 @@
   "description": "AI Desktop Companion — Electron + TypeScript 客户端",
   "main": "dist/main/main.js",
   "scripts": {
-    "copy-html":  "node -e \"const fs=require('fs');fs.mkdirSync('dist/renderer',{recursive:true});['chat.html','feishu-setup.html'].forEach(f=>{fs.copyFileSync('src/renderer/'+f,'dist/renderer/'+f);console.log('Copied',f,'-> dist/renderer/');});\"",
-    "build":      "tsc --project tsconfig.json && npm run copy-html",
-    "watch":      "tsc --project tsconfig.json --watch",
-    "start":      "npm run build && electron .",
-    "dev":        "concurrently \"npm run watch\" \"wait-on dist/main/main.js && electron . --inspect\"",
-    "pack":       "npm run build && electron-builder --dir",
-    "dist":       "npm run build && electron-builder"
+    "copy-html": "node -e \"const fs=require('fs');fs.mkdirSync('dist/renderer',{recursive:true});['chat.html','feishu-setup.html'].forEach(f=>{fs.copyFileSync('src/renderer/'+f,'dist/renderer/'+f);console.log('Copied',f,'-> dist/renderer/');});\"",
+    "build": "tsc --project tsconfig.json && npm run copy-html",
+    "watch": "tsc --project tsconfig.json --watch",
+    "start": "npm run build && electron .",
+    "dev": "concurrently \"npm run watch\" \"wait-on dist/main/main.js && electron . --inspect\"",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder"
   },
   "dependencies": {
+    "openai": "^6.29.0",
     "uuid": "^9.0.1",
-    "ws":   "^8.18.0"
+    "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@types/node":     "^20.0.0",
-    "@types/uuid":     "^9.0.0",
-    "@types/ws":       "^8.5.0",
     "@types/electron": "*",
-    "concurrently":    "^8.0.0",
-    "electron":        "^31.0.0",
+    "@types/node": "^20.0.0",
+    "@types/uuid": "^9.0.0",
+    "@types/ws": "^8.5.0",
+    "concurrently": "^8.0.0",
+    "electron": "^31.0.0",
     "electron-builder": "^24.0.0",
-    "typescript":      "^5.4.0",
-    "wait-on":         "^7.0.0"
+    "typescript": "^5.4.0",
+    "wait-on": "^7.0.0"
   },
   "build": {
-    "appId":       "com.example.desktop-companion",
+    "appId": "com.example.desktop-companion",
     "productName": "AI Desktop Companion",
-    "directories": { "output": "release" },
+    "directories": {
+      "output": "release"
+    },
     "files": [
       "dist/**/*",
       "src/renderer/chat.html",
-      "assets/**/*"
+      "assets/**/*",
+      "workspace-templates/**/*"
+    ],
+    "extraResources": [
+      { "from": "workspace-templates", "to": "workspace-templates" }
     ],
     "win": {
       "target": "nsis",
-      "icon":   "assets/icon.ico"
+      "icon": "assets/icon.ico"
     },
     "mac": {
       "target": "dmg",
-      "icon":   "assets/icon.icns"
+      "icon": "assets/icon.icns"
     },
     "linux": {
       "target": "AppImage"
